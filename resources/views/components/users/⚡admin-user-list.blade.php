@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Area;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Password;
@@ -19,6 +20,21 @@ new class extends Component
 
     public string $role = '';
 
+    public string $area_id = '';
+
+    public function updatedRole(string $value): void
+    {
+        if ($value !== Role::Admin->value || $this->area_id !== '') {
+            return;
+        }
+
+        $defaultArea = Area::where('title', 'Desarrollo')->first();
+
+        if ($defaultArea) {
+            $this->area_id = (string) $defaultArea->id;
+        }
+    }
+
     public function createUser(): void
     {
         Gate::authorize('create', User::class);
@@ -27,18 +43,20 @@ new class extends Component
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(array_column(Role::cases(), 'value'))],
+            'area_id' => ['nullable', 'exists:areas,id'],
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'role' => $validated['role'],
+            'area_id' => $validated['area_id'] ?: null,
             'password' => Str::random(40),
         ]);
 
         Password::sendResetLink(['email' => $user->email]);
 
-        $this->reset(['name', 'email', 'role']);
+        $this->reset(['name', 'email', 'role', 'area_id']);
 
         $this->modal('create-user')->close();
 
@@ -53,6 +71,15 @@ new class extends Component
         Gate::authorize('updateRole', [$target, $newRole]);
 
         $target->update(['role' => $newRole]);
+    }
+
+    public function updateArea(int $userId, ?string $areaId): void
+    {
+        $target = User::findOrFail($userId);
+
+        Gate::authorize('updateArea', $target);
+
+        $target->update(['area_id' => $areaId ?: null]);
     }
 
     public function resetPassword(int $userId): void
@@ -80,6 +107,7 @@ new class extends Component
         return [
             'users' => User::query()->orderBy('name')->paginate(20),
             'roles' => Role::cases(),
+            'areas' => Area::orderBy('title')->get(),
             'activeAdminCount' => User::activeAdminCount(),
         ];
     }
@@ -103,6 +131,7 @@ new class extends Component
                 <flux:table.column>{{ __('Nombre') }}</flux:table.column>
                 <flux:table.column>{{ __('Email') }}</flux:table.column>
                 <flux:table.column>{{ __('Rol') }}</flux:table.column>
+                <flux:table.column>{{ __('Área') }}</flux:table.column>
                 <flux:table.column>{{ __('Acciones') }}</flux:table.column>
             </flux:table.row>
         </flux:table.columns>
@@ -120,6 +149,18 @@ new class extends Component
                             @foreach ($roles as $roleOption)
                                 <flux:select.option value="{{ $roleOption->value }}" :selected="$user->role === $roleOption">
                                     {{ ucfirst($roleOption->value) }}
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    </flux:table.cell>
+                    <flux:table.cell>
+                        <flux:select size="sm" wire:change="updateArea({{ $user->id }}, $event.target.value)">
+                            <flux:select.option value="" :selected="is_null($user->area_id)">
+                                {{ __('Sin área') }}
+                            </flux:select.option>
+                            @foreach ($areas as $areaOption)
+                                <flux:select.option value="{{ $areaOption->id }}" :selected="$user->area_id === $areaOption->id">
+                                    {{ $areaOption->title }}
                                 </flux:select.option>
                             @endforeach
                         </flux:select>
@@ -167,6 +208,15 @@ new class extends Component
                 @foreach ($roles as $roleOption)
                     <flux:select.option value="{{ $roleOption->value }}">
                         {{ ucfirst($roleOption->value) }}
+                    </flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model="area_id" :label="__('Área')">
+                <flux:select.option value="">{{ __('Sin área') }}</flux:select.option>
+                @foreach ($areas as $areaOption)
+                    <flux:select.option value="{{ $areaOption->id }}">
+                        {{ $areaOption->title }}
                     </flux:select.option>
                 @endforeach
             </flux:select>

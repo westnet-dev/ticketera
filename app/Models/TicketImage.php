@@ -18,4 +18,11 @@ class TicketImage extends Model
     {
         return Storage::disk('public')->url($this->image_path);
     }
+
+    public function deleteWithFile(): void
+    {
+        Storage::disk('public')->delete($this->image_path);
+
+        $this->delete();
+    }
 }

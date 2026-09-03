@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -173,4 +174,99 @@ test('an admin cannot delete the last remaining admin', function () {
         ->assertForbidden();
 
     expect(User::find($admin->id))->not->toBeNull();
+});
+
+test('an admin can assign, change and unassign a user\'s area', function () {
+    $admin = User::factory()->admin()->create();
+    $target = User::factory()->create();
+    $area = Area::factory()->create();
+    $otherArea = Area::factory()->create();
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('updateArea', $target->id, (string) $area->id);
+
+    expect($target->refresh()->area_id)->toBe($area->id);
+
+    Livewire::test('users.admin-user-list')
+        ->call('updateArea', $target->id, (string) $otherArea->id);
+
+    expect($target->refresh()->area_id)->toBe($otherArea->id);
+
+    Livewire::test('users.admin-user-list')
+        ->call('updateArea', $target->id, '');
+
+    expect($target->refresh()->area_id)->toBeNull();
+});
+
+test('a client cannot change a user\'s area', function () {
+    $client = User::factory()->create();
+    $target = User::factory()->create();
+    $area = Area::factory()->create();
+
+    $this->actingAs($client);
+
+    Livewire::test('users.admin-user-list')
+        ->call('updateArea', $target->id, (string) $area->id)
+        ->assertForbidden();
+
+    expect($target->refresh()->area_id)->toBeNull();
+});
+
+test('the admin users list shows each user\'s assigned area', function () {
+    $admin = User::factory()->admin()->create();
+    $area = Area::factory()->create(['title' => 'Soporte Técnico']);
+    User::factory()->create(['area_id' => $area->id]);
+    User::factory()->create(['area_id' => null]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->assertSee('Soporte Técnico')
+        ->assertSee('Sin área');
+});
+
+test('selecting the admin role pre-selects the Desarrollo area', function () {
+    $admin = User::factory()->admin()->create();
+    $developmentArea = Area::factory()->create(['title' => 'Desarrollo']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->set('role', 'admin')
+        ->assertSet('area_id', (string) $developmentArea->id);
+});
+
+test('an admin can override the pre-selected Desarrollo area before creating an admin user', function () {
+    Notification::fake();
+
+    $admin = User::factory()->admin()->create();
+    Area::factory()->create(['title' => 'Desarrollo']);
+    $otherArea = Area::factory()->create(['title' => 'Comercial']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->set('name', 'Nueva Persona')
+        ->set('email', 'nueva.persona@example.com')
+        ->set('role', 'admin')
+        ->set('area_id', (string) $otherArea->id)
+        ->call('createUser')
+        ->assertHasNoErrors();
+
+    $user = User::where('email', 'nueva.persona@example.com')->first();
+
+    expect($user->area_id)->toBe($otherArea->id);
+});
+
+test('selecting the client role does not pre-select any area', function () {
+    $admin = User::factory()->admin()->create();
+    Area::factory()->create(['title' => 'Desarrollo']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->set('role', 'client')
+        ->assertSet('area_id', '');
 });

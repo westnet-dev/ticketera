@@ -67,6 +67,14 @@ class UserPolicy
     }
 
     /**
+     * Determine whether the user can change the target user's area.
+     */
+    public function updateArea(User $user, User $model): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
      * Determine whether the user can force a password reset for the target user.
      */
     public function resetPassword(User $user, User $model): bool

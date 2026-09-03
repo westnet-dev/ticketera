@@ -29,7 +29,7 @@ new class extends Component
 
     public function sort(string $column): void
     {
-        if (! in_array($column, ['priority', 'created_at'], true)) {
+        if (! in_array($column, ['priority', 'urgency', 'impact', 'created_at'], true)) {
             return;
         }
 
@@ -45,10 +45,11 @@ new class extends Component
 
     public function with(): array
     {
-        $sortBy = in_array($this->sortBy, ['priority', 'created_at'], true) ? $this->sortBy : 'created_at';
+        $sortBy = in_array($this->sortBy, ['priority', 'urgency', 'impact', 'created_at'], true) ? $this->sortBy : 'created_at';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
         $tickets = Ticket::query()
+            ->approved()
             ->with(['user', 'assignedTo'])
             ->orderBy($sortBy, $sortDirection)
             ->paginate(10);
@@ -82,6 +83,12 @@ new class extends Component
                     <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
                         {{ __('Prioridad') }}
                     </flux:table.column>
+                    <flux:table.column sortable :sorted="$sortBy === 'urgency'" :direction="$sortDirection" wire:click="sort('urgency')">
+                        {{ __('Urgencia') }}
+                    </flux:table.column>
+                    <flux:table.column sortable :sorted="$sortBy === 'impact'" :direction="$sortDirection" wire:click="sort('impact')">
+                        {{ __('Impacto') }}
+                    </flux:table.column>
                     <flux:table.column>{{ __('Estado') }}</flux:table.column>
                     <flux:table.column sortable :sorted="$sortBy === 'created_at'" :direction="$sortDirection" wire:click="sort('created_at')">
                         {{ __('Creado') }}
@@ -99,10 +106,9 @@ new class extends Component
                                 {{ $ticket->title }}
                             </a>
                         </flux:table.cell>
-                        <flux:table.cell class="flex items-center gap-2">
-                            {{ ucfirst($ticket->priorityLabel()) }}
-                            {!! $ticket->priorityIcon() !!}
-                        </flux:table.cell>
+                        <flux:table.cell>{{ $ticket->priority }}</flux:table.cell>
+                        <flux:table.cell>{{ $ticket->urgency }}</flux:table.cell>
+                        <flux:table.cell>{{ $ticket->impact }}</flux:table.cell>
                         <flux:table.cell>
                             <flux:badge size="sm" :color="$ticket->statusColor()">
                                 {{ $ticket->statusLabel() }}

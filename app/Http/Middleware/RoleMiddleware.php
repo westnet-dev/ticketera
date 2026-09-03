@@ -10,18 +10,19 @@ class RoleMiddleware
 {
     /**
      * Handle an incoming request.
-     *
-     * @param Request $request
-     * @param Closure $next
-     * @param string $role
-     * @return Response
      */
-    public function handle(Request $request, Closure $next, $role): Response
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (!auth()->check() || !auth()->user()->hasRole($role)) {
+        if (! auth()->check()) {
             abort(403);
         }
 
-        return $next($request);
+        foreach ($roles as $role) {
+            if (auth()->user()->hasRole($role)) {
+                return $next($request);
+            }
+        }
+
+        abort(403);
     }
 }

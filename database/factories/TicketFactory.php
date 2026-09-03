@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -22,8 +23,11 @@ class TicketFactory extends Factory
             'user_id' => User::factory(),
             'title' => fake()->sentence(6),
             'description' => fake()->paragraph(),
-            'priority' => fake()->randomElement(['low', 'medium', 'high', 'urgent']),
+            'priority' => fake()->numberBetween(1, 10),
+            'urgency' => fake()->numberBetween(1, 10),
+            'impact' => fake()->numberBetween(1, 10),
             'status' => fake()->randomElement(['open', 'in_progress', 'resolved', 'closed']),
+            'triage_status' => TriageStatus::Approved,
             'assigned_to' => null,
         ];
     }

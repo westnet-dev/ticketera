@@ -10,6 +10,11 @@
             <flux:navlist.item :href="route('appearance.edit')" wire:navigate>{{
                 __("Apariencia")
             }}</flux:navlist.item>
+            @if (auth()->user()->isAdmin())
+                <flux:navlist.item :href="route('tickets.settings')" wire:navigate>{{
+                    __("Tickets")
+                }}</flux:navlist.item>
+            @endif
         </flux:navlist>
     </div>
 

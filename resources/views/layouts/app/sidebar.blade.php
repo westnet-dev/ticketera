@@ -30,12 +30,36 @@
                             {{ __('Tickets') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item
+                            icon="user"
+                            :href="route('ticket.index')"
+                            :current="request()->routeIs('ticket.index', 'ticket.create', 'ticket.closed')"
+                            wire:navigate
+                        >
+                            {{ __('Mis tickets') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item
+                            icon="inbox-arrow-down"
+                            :href="route('admin.triage')"
+                            :current="request()->routeIs('admin.triage')"
+                            wire:navigate
+                        >
+                            {{ __('Triage') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item
                             icon="users"
                             :href="route('admin.users')"
                             :current="request()->routeIs('admin.users')"
                             wire:navigate
                         >
                             {{ __('Usuarios') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item
+                            icon="building-office"
+                            :href="route('admin.areas')"
+                            :current="request()->routeIs('admin.areas')"
+                            wire:navigate
+                        >
+                            {{ __('Áreas') }}
                         </flux:sidebar.item>
                     @else
                         <flux:sidebar.item

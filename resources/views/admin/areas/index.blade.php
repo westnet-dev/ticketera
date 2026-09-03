@@ -1,5 +1,5 @@
-<x-layouts::app :title="__('Users')">
+<x-layouts::app :title="__('Areas')">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <livewire:users.admin-user-list />
+        <livewire:areas.admin-area-list />
     </div>
 </x-layouts::app>

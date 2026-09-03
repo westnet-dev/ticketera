@@ -17,3 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ])
         ->name('security.edit');
 });
+
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::livewire('settings/tickets', 'pages::settings.tickets')->name('tickets.settings');
+});

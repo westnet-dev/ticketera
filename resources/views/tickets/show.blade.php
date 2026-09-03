@@ -14,6 +14,11 @@
                             {{ $ticket->statusLabel() }}
                         </flux:badge>
                     @endcan
+                    @unless ($ticket->isTriageApproved())
+                        <flux:badge size="sm" :color="$ticket->triageStatusColor()">
+                            {{ $ticket->triageStatusLabel() }}
+                        </flux:badge>
+                    @endunless
                 </div>
                 <flux:button
                     href="{{ route('ticket.index') }}"
@@ -56,7 +61,9 @@
             </div>
         </div>
 
-
+        @can('reviseTriage', $ticket)
+            <livewire:tickets.revise-ticket :ticket="$ticket" />
+        @endcan
 
         <livewire:tickets.ticket-chat :ticket="$ticket" />
     </div>

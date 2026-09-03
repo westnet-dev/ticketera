@@ -56,7 +56,10 @@ new #[Title('Profile settings')] class extends Component {
 
             <div>
                 <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+            </div>
 
+            <div>
+                <flux:input :value="Auth::user()->area?->title ?? __('Sin área asignada')" :label="__('Área')" readonly disabled />
             </div>
 
             <div class="flex items-center gap-4">

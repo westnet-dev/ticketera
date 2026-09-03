@@ -19,7 +19,12 @@
                     {{ __("Cerrados") }}
                 </flux:button>
             </flux:button.group>
-            <flux:button href="{{ route('ticket.create') }}" wire:navigate>
+            <flux:button
+                href="{{ route('ticket.create') }}"
+                wire:navigate
+                variant="primary"
+                icon="plus"
+            >
                 {{ __("Nuevo ticket") }}
             </flux:button>
         </div>

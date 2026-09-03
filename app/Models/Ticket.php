@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TriageStatus;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,13 +17,16 @@ use Illuminate\Support\Carbon;
  * @property int $user_id
  * @property string $title
  * @property string $description
- * @property string $priority
+ * @property int $priority
+ * @property int $urgency
+ * @property int $impact
  * @property string $status
+ * @property TriageStatus $triage_status
  * @property int|null $assigned_to
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['user_id', 'title', 'description', 'priority', 'assigned_to', 'status'])]
+#[Fillable(['user_id', 'title', 'description', 'priority', 'urgency', 'impact', 'assigned_to', 'status', 'triage_status'])]
 
 class Ticket extends Model
 {
@@ -33,6 +37,16 @@ class Ticket extends Model
      * @var array<int, string>
      */
     public const STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'triage_status' => TriageStatus::class,
+        ];
+    }
 
     public function user(): BelongsTo
     {
@@ -72,7 +86,7 @@ class Ticket extends Model
         $query->where('status', 'closed');
     }
 
-    protected function scopeByPriority($query, string $priority): void
+    protected function scopeByPriority($query, int $priority): void
     {
         $query->where('priority', $priority);
     }
@@ -80,6 +94,11 @@ class Ticket extends Model
     protected function scopeUnassigned($query): void
     {
         $query->whereNull('assigned_to');
+    }
+
+    protected function scopeApproved($query): void
+    {
+        $query->where('triage_status', TriageStatus::Approved);
     }
 
     public function statusColor(): string
@@ -109,25 +128,31 @@ class Ticket extends Model
         };
     }
 
-    public function priorityLabel(): string
+    public function isTriageApproved(): bool
     {
-        return match ($this->priority) {
-            'low' => __('Baja'),
-            'medium' => __('Media'),
-            'high' => __('Alta'),
-            'urgent' => __('Urgente'),
-            default => __('Desconocida'),
+        return $this->triage_status === TriageStatus::Approved;
+    }
+
+    public function isTriageRejected(): bool
+    {
+        return $this->triage_status === TriageStatus::Rejected;
+    }
+
+    public function triageStatusColor(): string
+    {
+        return match ($this->triage_status) {
+            TriageStatus::Pending => 'yellow',
+            TriageStatus::Approved => 'green',
+            TriageStatus::Rejected => 'red',
         };
     }
 
-    public function priorityIcon(): string
+    public function triageStatusLabel(): string
     {
-        return match ($this->priority) {
-            'low' => svg('hugeicons-signal-low-02', 'text-green-500')->toHtml(),
-            'medium' => svg('hugeicons-signal-medium-02', 'text-yellow-500')->toHtml(),
-            'high' => svg('hugeicons-signal-full-02', 'text-orange-500')->toHtml(),
-            'urgent' => svg('hugeicons-alert-02', 'text-red-500')->toHtml(),
-            default => svg('hugeicons-signal-low-02', 'text-gray-500')->toHtml(),
+        return match ($this->triage_status) {
+            TriageStatus::Pending => __('Pendiente de triage'),
+            TriageStatus::Approved => __('Aprobado'),
+            TriageStatus::Rejected => __('Rechazado'),
         };
     }
 }

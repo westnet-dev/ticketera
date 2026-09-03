@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Ticket;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -18,7 +19,7 @@ new class extends Component
 
     public function sort(string $column): void
     {
-        if (! in_array($column, ['priority', 'created_at'], true)) {
+        if (! in_array($column, ['priority', 'urgency', 'impact', 'created_at'], true)) {
             return;
         }
 
@@ -34,10 +35,18 @@ new class extends Component
 
     public function with(): array
     {
-        $sortBy = in_array($this->sortBy, ['priority', 'created_at'], true) ? $this->sortBy : 'created_at';
+        $sortBy = in_array($this->sortBy, ['priority', 'urgency', 'impact', 'created_at'], true) ? $this->sortBy : 'created_at';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
-        $query = auth()->user()->tickets();
+        $query = Ticket::query()
+            ->with('assignedTo')
+            ->where(function ($q) {
+                $q->where('user_id', auth()->id());
+
+                if (auth()->user()->isAdmin()) {
+                    $q->orWhere('assigned_to', auth()->id());
+                }
+            });
 
         if ($this->statusFilter === 'closed') {
             $query->closed();
@@ -77,7 +86,17 @@ new class extends Component
                     <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
                         {{ __('Prioridad') }}
                     </flux:table.column>
+                    <flux:table.column sortable :sorted="$sortBy === 'urgency'" :direction="$sortDirection" wire:click="sort('urgency')">
+                        {{ __('Urgencia') }}
+                    </flux:table.column>
+                    <flux:table.column sortable :sorted="$sortBy === 'impact'" :direction="$sortDirection" wire:click="sort('impact')">
+                        {{ __('Impacto') }}
+                    </flux:table.column>
                     <flux:table.column>{{ __('Estado') }}</flux:table.column>
+                    <flux:table.column>{{ __('Triage') }}</flux:table.column>
+                    @if (auth()->user()->isAdmin())
+                        <flux:table.column>{{ __('Asignado a') }}</flux:table.column>
+                    @endif
                     <flux:table.column sortable :sorted="$sortBy === 'created_at'" :direction="$sortDirection" wire:click="sort('created_at')">
                         {{ __('Creado') }}
                     </flux:table.column>
@@ -93,15 +112,22 @@ new class extends Component
                                 {{ $ticket->title }}
                             </a>
                         </flux:table.cell>
-                        <flux:table.cell class="flex items-center gap-2">
-                            {!! $ticket->priorityIcon() !!}
-                            {{ ucfirst($ticket->priorityLabel()) }}
-                        </flux:table.cell>
+                        <flux:table.cell>{{ $ticket->priority }}</flux:table.cell>
+                        <flux:table.cell>{{ $ticket->urgency }}</flux:table.cell>
+                        <flux:table.cell>{{ $ticket->impact }}</flux:table.cell>
                         <flux:table.cell>
                             <flux:badge size="sm" :color="$ticket->statusColor()">
                                 {{ $ticket->statusLabel() }}
                             </flux:badge>
                         </flux:table.cell>
+                        <flux:table.cell>
+                            <flux:badge size="sm" :color="$ticket->triageStatusColor()">
+                                {{ $ticket->triageStatusLabel() }}
+                            </flux:badge>
+                        </flux:table.cell>
+                        @if (auth()->user()->isAdmin())
+                            <flux:table.cell>{{ $ticket->assignedTo?->name ?? __('Sin asignar') }}</flux:table.cell>
+                        @endif
                         <flux:table.cell>{{ $ticket->created_at->diffForHumans() }}</flux:table.cell>
                     </flux:table.row>
                 @endforeach

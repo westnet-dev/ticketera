@@ -2,7 +2,9 @@
 
 namespace App\Policies;
 
+use App\Enums\TriageStatus;
 use App\Models\Ticket;
+use App\Models\TicketSetting;
 use App\Models\User;
 
 class TicketPolicy
@@ -28,7 +30,7 @@ class TicketPolicy
      */
     public function assign(User $user, Ticket $ticket): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() && $ticket->triage_status === TriageStatus::Approved;
     }
 
     /**
@@ -36,7 +38,31 @@ class TicketPolicy
      */
     public function changeStatus(User $user, Ticket $ticket): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() && $ticket->triage_status === TriageStatus::Approved;
+    }
+
+    /**
+     * Determine whether the user can approve the ticket out of triage.
+     */
+    public function approve(User $user, Ticket $ticket): bool
+    {
+        return $user->isAdmin() && $ticket->triage_status === TriageStatus::Pending;
+    }
+
+    /**
+     * Determine whether the user can reject the ticket out of triage.
+     */
+    public function reject(User $user, Ticket $ticket): bool
+    {
+        return $user->isAdmin() && $ticket->triage_status === TriageStatus::Pending;
+    }
+
+    /**
+     * Determine whether the user can revise and resubmit a rejected ticket.
+     */
+    public function reviseTriage(User $user, Ticket $ticket): bool
+    {
+        return $user->id === $ticket->user_id && $ticket->triage_status === TriageStatus::Rejected;
     }
 
     /**
@@ -44,7 +70,11 @@ class TicketPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->tickets()->where('status', '!=', 'closed')->count() < TicketSetting::current()->max_open_tickets_per_user;
     }
 
     /**
