@@ -62,7 +62,7 @@ new class extends Component
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
                 <flux:heading size="sm">{{ __('Tickets por prioridad') }}</flux:heading>
                 <dl class="mt-3 flex flex-col gap-2">
-                    @foreach (['low' => __('Baja'), 'medium' => __('Media'), 'high' => __('Alta'), 'urgent' => __('Urgente')] as $priority => $label)
+                    @foreach (['urgent' => __('Urgente'), 'high' => __('Alta'), 'medium' => __('Media'), 'low' => __('Baja')] as $priority => $label)
                         <div class="flex items-center justify-between text-sm">
                             <dt class="text-neutral-500 dark:text-neutral-400">{{ $label }}</dt>
                             <dd class="font-semibold">{{ $ticketsByPriority[$priority] ?? 0 }}</dd>

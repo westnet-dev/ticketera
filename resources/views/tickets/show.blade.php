@@ -2,14 +2,18 @@
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
         <div class="flex flex-col items-start justify-between gap-3">
             <div class="flex items-center justify-between gap-2 w-full">
-                <div class="flex gap-2">
+                <div class="flex items-center gap-2">
                     <flux:heading size="lg">{{ $ticket->title }}</flux:heading>
-                    <flux:badge
-                        size="sm"
-                        :color="$ticket->statusColor()"
-                    >
-                        {{ $ticket->statusLabel() }}
-                    </flux:badge>
+                    @can('changeStatus', $ticket)
+                        <livewire:tickets.ticket-status-selector :ticket="$ticket" />
+                    @else
+                        <flux:badge
+                            size="sm"
+                            :color="$ticket->statusColor()"
+                        >
+                            {{ $ticket->statusLabel() }}
+                        </flux:badge>
+                    @endcan
                 </div>
                 <flux:button
                     href="{{ route('ticket.index') }}"

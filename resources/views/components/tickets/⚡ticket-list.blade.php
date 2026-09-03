@@ -94,8 +94,8 @@ new class extends Component
                             </a>
                         </flux:table.cell>
                         <flux:table.cell class="flex items-center gap-2">
-                            {{ ucfirst($ticket->priorityLabel()) }}
                             {!! $ticket->priorityIcon() !!}
+                            {{ ucfirst($ticket->priorityLabel()) }}
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:badge size="sm" :color="$ticket->statusColor()">

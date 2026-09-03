@@ -32,6 +32,14 @@ class TicketPolicy
     }
 
     /**
+     * Determine whether the user can change the ticket's status.
+     */
+    public function changeStatus(User $user, Ticket $ticket): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
      * Determine whether the user can create models.
      */
     public function create(User $user): bool

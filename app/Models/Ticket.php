@@ -22,12 +22,17 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['user_id', 'title', 'description', 'priority', 'assigned_to'])]
+#[Fillable(['user_id', 'title', 'description', 'priority', 'assigned_to', 'status'])]
 
 class Ticket extends Model
 {
     /** @use HasFactory<TicketFactory> */
     use HasFactory;
+
+    /**
+     * @var array<int, string>
+     */
+    public const STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
 
     public function user(): BelongsTo
     {
@@ -90,7 +95,12 @@ class Ticket extends Model
 
     public function statusLabel(): string
     {
-        return match ($this->status) {
+        return static::labelForStatus($this->status);
+    }
+
+    public static function labelForStatus(string $status): string
+    {
+        return match ($status) {
             'open' => __('Abierto'),
             'in_progress' => __('En Progreso'),
             'resolved' => __('Resuelto'),
