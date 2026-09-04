@@ -88,7 +88,7 @@ new class extends Component
 <div class="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
     @if ($ticket->isTriageRejected())
         <flux:heading size="sm">{{ __('Tu ticket fue rechazado') }}</flux:heading>
-        <flux:subheading>{{ __('Revisá el motivo en el chat, corregí lo que haga falta y reenvialo a triage.') }}</flux:subheading>
+        <flux:subheading>{{ __('Revisá el motivo en el chat, corregí lo que haga falta y reenvialo para ser aprobado.') }}</flux:subheading>
 
         <form wire:submit="save" class="mt-4 flex flex-col gap-5">
             <flux:field>
@@ -138,9 +138,9 @@ new class extends Component
                 <flux:error name="newImages.*" />
             </flux:field>
 
-            <flux:button type="submit" variant="primary">{{ __('Reenviar a triage') }}</flux:button>
+            <flux:button type="submit" variant="primary">{{ __('Reenviar para ser aprobado') }}</flux:button>
         </form>
     @else
-        <flux:text>{{ __('Ya reenviaste este ticket a triage. Un admin lo va a revisar de nuevo.') }}</flux:text>
+        <flux:text>{{ __('Ya reenviaste este ticket a aprobación. Un admin lo va a revisar de nuevo.') }}</flux:text>
     @endif
 </div>

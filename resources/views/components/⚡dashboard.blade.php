@@ -84,7 +84,7 @@ new class extends Component
             </div>
 
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Pendientes de triage') }}</flux:heading>
+                <flux:heading size="sm">{{ __('Pendientes de aprobación') }}</flux:heading>
                 <p class="mt-3 text-2xl font-semibold">{{ $pendingTriageCount }}</p>
             </div>
 

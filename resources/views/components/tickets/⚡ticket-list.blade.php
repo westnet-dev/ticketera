@@ -93,7 +93,7 @@ new class extends Component
                         {{ __('Impacto') }}
                     </flux:table.column>
                     <flux:table.column>{{ __('Estado') }}</flux:table.column>
-                    <flux:table.column>{{ __('Triage') }}</flux:table.column>
+                    <flux:table.column>{{ __('Aprobación') }}</flux:table.column>
                     @if (auth()->user()->isAdmin())
                         <flux:table.column>{{ __('Asignado a') }}</flux:table.column>
                     @endif
