@@ -50,6 +50,7 @@ new class extends Component
 
         $tickets = Ticket::query()
             ->approved()
+            ->where('status', '!=', 'draft')
             ->with(['user', 'assignedTo'])
             ->orderBy($sortBy, $sortDirection)
             ->paginate(10);

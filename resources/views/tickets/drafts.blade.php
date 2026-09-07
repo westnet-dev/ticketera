@@ -1,4 +1,4 @@
-<x-layouts::app :title="__('Closed tickets')">
+<x-layouts::app :title="__('Draft tickets')">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
         <flux:heading size="lg">{{ __("Mis tickets") }}</flux:heading>
 
@@ -12,11 +12,18 @@
                     {{ __("En curso") }}
                 </flux:button>
                 <flux:button
-                    variant="primary"
-                    href="{{ route('ticket.closed') }}"
+                    variant="filled"
+                    href="{{ route('ticket.finished') }}"
                     wire:navigate
                 >
-                    {{ __("Cerrados") }}
+                    {{ __("Finalizados") }}
+                </flux:button>
+                <flux:button
+                    variant="primary"
+                    href="{{ route('ticket.drafts') }}"
+                    wire:navigate
+                >
+                    {{ __("Borradores") }}
                 </flux:button>
             </flux:button.group>
             <flux:button
@@ -29,6 +36,6 @@
             </flux:button>
         </div>
 
-        <livewire:tickets.ticket-list status-filter="closed" />
+        <livewire:tickets.ticket-list status-filter="draft" />
     </div>
 </x-layouts::app>

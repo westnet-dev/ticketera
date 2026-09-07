@@ -22,6 +22,10 @@ class TicketPolicy
      */
     public function view(User $user, Ticket $ticket): bool
     {
+        if ($ticket->isDraft()) {
+            return $user->id === $ticket->user_id;
+        }
+
         return $user->id === $ticket->user_id || $user->isAdmin();
     }
 
@@ -74,7 +78,7 @@ class TicketPolicy
             return true;
         }
 
-        return $user->tickets()->where('status', '!=', 'closed')->count() < TicketSetting::current()->max_open_tickets_per_user;
+        return $user->tickets()->whereNotIn('status', ['resolved', 'cancelled', 'draft'])->count() < TicketSetting::current()->max_open_tickets_per_user;
     }
 
     /**
@@ -82,7 +86,7 @@ class TicketPolicy
      */
     public function update(User $user, Ticket $ticket): bool
     {
-        return false;
+        return $ticket->isDraft() && $user->id === $ticket->user_id;
     }
 
     /**
@@ -90,7 +94,7 @@ class TicketPolicy
      */
     public function delete(User $user, Ticket $ticket): bool
     {
-        return false;
+        return $ticket->isDraft() && $user->id === $ticket->user_id;
     }
 
     /**

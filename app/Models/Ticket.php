@@ -36,7 +36,7 @@ class Ticket extends Model
     /**
      * @var array<int, string>
      */
-    public const STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
+    public const STATUSES = ['draft', 'open', 'in_progress', 'paused', 'resolved', 'cancelled'];
 
     /**
      * @return array<string, string>
@@ -81,9 +81,29 @@ class Ticket extends Model
         $query->where('status', 'open');
     }
 
-    protected function scopeClosed($query): void
+    protected function scopeResolved($query): void
     {
-        $query->where('status', 'closed');
+        $query->where('status', 'resolved');
+    }
+
+    protected function scopeDraft($query): void
+    {
+        $query->where('status', 'draft');
+    }
+
+    protected function scopePaused($query): void
+    {
+        $query->where('status', 'paused');
+    }
+
+    protected function scopeCancelled($query): void
+    {
+        $query->where('status', 'cancelled');
+    }
+
+    protected function scopeFinished($query): void
+    {
+        $query->whereIn('status', ['resolved', 'cancelled']);
     }
 
     protected function scopeByPriority($query, int $priority): void
@@ -104,10 +124,12 @@ class Ticket extends Model
     public function statusColor(): string
     {
         return match ($this->status) {
+            'draft' => 'zinc',
             'open' => 'green',
             'in_progress' => 'yellow',
+            'paused' => 'orange',
             'resolved' => 'blue',
-            'closed' => 'red',
+            'cancelled' => 'red',
             default => 'zinc',
         };
     }
@@ -120,12 +142,19 @@ class Ticket extends Model
     public static function labelForStatus(string $status): string
     {
         return match ($status) {
+            'draft' => __('Borrador'),
             'open' => __('Abierto'),
             'in_progress' => __('En Progreso'),
+            'paused' => __('Pausado'),
             'resolved' => __('Resuelto'),
-            'closed' => __('Cerrado'),
+            'cancelled' => __('Cancelado'),
             default => __('Desconocido'),
         };
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
     }
 
     public function isTriageApproved(): bool

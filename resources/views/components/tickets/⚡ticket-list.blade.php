@@ -48,10 +48,12 @@ new class extends Component
                 }
             });
 
-        if ($this->statusFilter === 'closed') {
-            $query->closed();
+        if ($this->statusFilter === 'finished') {
+            $query->finished();
+        } elseif ($this->statusFilter === 'draft') {
+            $query->draft();
         } else {
-            $query->where('status', '!=', 'closed');
+            $query->whereIn('status', ['open', 'in_progress', 'paused']);
         }
 
         return [
@@ -69,8 +71,10 @@ new class extends Component
     @if ($tickets->isEmpty())
         <div class="flex flex-col items-center justify-center gap-2 rounded-lg border border-neutral-200 p-8 dark:border-neutral-700">
             <x-heroicon-o-ticket style="width: 200px;" class="mx-auto text-neutral-400" />
-            @if ($statusFilter === 'closed')
-                <p class="text-center text-sm text-neutral-500">{{ __('No tienes tickets cerrados.') }}</p>
+            @if ($statusFilter === 'finished')
+                <p class="text-center text-sm text-neutral-500">{{ __('No tienes tickets finalizados.') }}</p>
+            @elseif ($statusFilter === 'draft')
+                <p class="text-center text-sm text-neutral-500">{{ __('No tienes borradores.') }}</p>
             @else
                 <p class="text-center text-sm text-neutral-500">{{ __('No tienes ningún ticket.') }}</p>
                 <p class="text-center text-xs text-neutral-100">{{ __('Haz clic en "Nuevo ticket" para crear uno.') }}</p>

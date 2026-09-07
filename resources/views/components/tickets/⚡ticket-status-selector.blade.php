@@ -12,7 +12,7 @@ new class extends Component
     {
         Gate::authorize('changeStatus', $this->ticket);
 
-        if (! in_array($status, Ticket::STATUSES, true)) {
+        if ($status === 'draft' || ! in_array($status, Ticket::STATUSES, true)) {
             return;
         }
 
@@ -23,7 +23,7 @@ new class extends Component
 
 <div>
     <flux:select size="sm" wire:change="updateStatus($event.target.value)">
-        @foreach (Ticket::STATUSES as $status)
+        @foreach (array_diff(Ticket::STATUSES, ['draft']) as $status)
             <flux:select.option value="{{ $status }}" :selected="$ticket->status === $status">
                 {{ Ticket::labelForStatus($status) }}
             </flux:select.option>

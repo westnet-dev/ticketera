@@ -34,20 +34,20 @@ test('an admin still sees tickets they created themselves', function () {
         ->assertSee('Mi propio pedido');
 });
 
-test('a closed ticket assigned to an admin appears only in the closed tab', function () {
+test('a resolved ticket assigned to an admin appears only in the finished tab', function () {
     $admin = User::factory()->admin()->create();
     $creator = User::factory()->create();
     Ticket::factory()->create([
         'user_id' => $creator->id,
         'assigned_to' => $admin->id,
-        'status' => 'closed',
-        'title' => 'Pedido cerrado asignado',
+        'status' => 'resolved',
+        'title' => 'Pedido resuelto asignado',
     ]);
 
     $this->actingAs($admin);
 
-    $this->get(route('ticket.index'))->assertOk()->assertDontSee('Pedido cerrado asignado');
-    $this->get(route('ticket.closed'))->assertOk()->assertSee('Pedido cerrado asignado');
+    $this->get(route('ticket.index'))->assertOk()->assertDontSee('Pedido resuelto asignado');
+    $this->get(route('ticket.finished'))->assertOk()->assertSee('Pedido resuelto asignado');
 });
 
 test('a client does not see tickets assigned to them, only tickets they created', function () {

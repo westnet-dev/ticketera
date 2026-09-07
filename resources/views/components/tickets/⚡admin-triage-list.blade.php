@@ -62,6 +62,7 @@ new class extends Component
         return [
             'tickets' => Ticket::query()
                 ->where('triage_status', TriageStatus::Pending)
+                ->where('status', '!=', 'draft')
                 ->with('user')
                 ->orderBy('created_at')
                 ->paginate(10),
@@ -111,7 +112,12 @@ new class extends Component
                                     <flux:button size="sm" variant="ghost" wire:click="cancelRejecting">{{ __('Cancelar') }}</flux:button>
                                 </form>
                             @else
-                                <flux:button size="sm" variant="primary" wire:click="approve({{ $ticket->id }})">
+                                <flux:button
+                                    size="sm"
+                                    variant="primary"
+                                    wire:click="approve({{ $ticket->id }})"
+                                    wire:confirm="{{ __('¿Aprobar este ticket?') }}"
+                                >
                                     {{ __('Aprobar') }}
                                 </flux:button>
                                 <flux:button size="sm" variant="danger" wire:click="startRejecting({{ $ticket->id }})">

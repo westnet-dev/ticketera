@@ -13,18 +13,29 @@ class TicketController extends Controller
         return view('tickets.index');
     }
 
-    public function closed(): View
-    {
-        return view('tickets.closed');
-    }
-
     public function create(): View
     {
         return view('tickets.create');
     }
 
+    public function finished(): View
+    {
+        return view('tickets.finished');
+    }
+
+    public function drafts(): View
+    {
+        return view('tickets.drafts');
+    }
+
     public function show(Ticket $ticket): View
     {
+        if ($ticket->isDraft()) {
+            Gate::authorize('update', $ticket);
+
+            return view('tickets.draft-edit', ['ticket' => $ticket]);
+        }
+
         Gate::authorize('view', $ticket);
 
         return view('tickets.show', ['ticket' => $ticket]);

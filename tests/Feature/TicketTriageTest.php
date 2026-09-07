@@ -87,6 +87,85 @@ test('rejecting without a reason fails validation and does not change triage sta
     expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Pending);
 });
 
+test('an admin can approve a pending ticket from the ticket detail page', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Pending]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.ticket-triage-actions', ['ticket' => $ticket])
+        ->call('approve')
+        ->assertHasNoErrors();
+
+    expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Approved);
+});
+
+test('an admin can reject a pending ticket with a reason from the ticket detail page', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Pending]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.ticket-triage-actions', ['ticket' => $ticket])
+        ->set('rejectionReason', 'Falta más información sobre el problema.')
+        ->call('reject')
+        ->assertHasNoErrors();
+
+    expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Rejected);
+    expect($ticket->messages()->where('body', 'Falta más información sobre el problema.')->exists())->toBeTrue();
+});
+
+test('rejecting from the ticket detail page without a reason fails validation and does not change triage status', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Pending]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.ticket-triage-actions', ['ticket' => $ticket])
+        ->set('rejectionReason', '')
+        ->call('reject')
+        ->assertHasErrors(['rejectionReason']);
+
+    expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Pending);
+});
+
+test('a client cannot approve or reject from the ticket detail page', function () {
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Pending]);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.ticket-triage-actions', ['ticket' => $ticket])
+        ->call('approve')
+        ->assertForbidden();
+
+    Livewire::test('tickets.ticket-triage-actions', ['ticket' => $ticket])
+        ->set('rejectionReason', 'Motivo cualquiera.')
+        ->call('reject')
+        ->assertForbidden();
+});
+
+test('the triage actions do not render on the ticket detail page for a non-admin user', function () {
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->create(['user_id' => $client->id, 'triage_status' => TriageStatus::Pending]);
+
+    $this->actingAs($client)
+        ->get(route('ticket.show', $ticket))
+        ->assertOk()
+        ->assertDontSee(__('Aprobar'))
+        ->assertDontSeeLivewire('tickets.ticket-triage-actions');
+});
+
+test('the triage actions do not render on the ticket detail page once the ticket is already approved or rejected', function (string $triageStatus) {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['triage_status' => $triageStatus]);
+
+    $this->actingAs($admin)
+        ->get(route('ticket.show', $ticket))
+        ->assertOk()
+        ->assertDontSeeLivewire('tickets.ticket-triage-actions');
+})->with([TriageStatus::Approved->value, TriageStatus::Rejected->value]);
+
 test('a client cannot access the triage module or its actions', function () {
     $client = User::factory()->create();
     $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Pending]);

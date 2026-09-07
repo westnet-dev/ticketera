@@ -44,16 +44,16 @@ test('a client who already reached the limit cannot create a new ticket', functi
     expect(Ticket::where('user_id', $client->id)->count())->toBe(5);
 });
 
-test('closing one of the tickets frees up room for a new one', function () {
+test('resolving one of the tickets frees up room for a new one', function () {
     $client = User::factory()->create();
     $tickets = Ticket::factory()->count(5)->create(['user_id' => $client->id, 'status' => 'open']);
-    $tickets->first()->update(['status' => 'closed']);
+    $tickets->first()->update(['status' => 'resolved']);
 
     $this->actingAs($client);
 
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Ahora sí puedo crear otro')
-        ->set('description', 'Uno de mis tickets anteriores ya se cerró.')
+        ->set('description', 'Uno de mis tickets anteriores ya se resolvió.')
         ->set('priority', 5)
         ->set('urgency', 5)
         ->set('impact', 5)
@@ -64,22 +64,40 @@ test('closing one of the tickets frees up room for a new one', function () {
     expect(Ticket::where('user_id', $client->id)->count())->toBe(6);
 });
 
-test('closed tickets do not count toward the limit', function () {
+test('resolved and cancelled tickets do not count toward the limit', function () {
     $client = User::factory()->create();
-    Ticket::factory()->count(10)->create(['user_id' => $client->id, 'status' => 'closed']);
+    Ticket::factory()->count(6)->create(['user_id' => $client->id, 'status' => 'resolved']);
+    Ticket::factory()->count(4)->create(['user_id' => $client->id, 'status' => 'cancelled']);
     Ticket::factory()->count(2)->create(['user_id' => $client->id, 'status' => 'open']);
 
     $this->actingAs($client);
 
     Livewire::test('tickets.create-ticket')
-        ->set('title', 'Puedo crear porque los cerrados no cuentan')
-        ->set('description', 'Tengo muchos tickets cerrados pero solo 2 abiertos.')
+        ->set('title', 'Puedo crear porque los finalizados no cuentan')
+        ->set('description', 'Tengo muchos tickets finalizados pero solo 2 abiertos.')
         ->set('priority', 5)
         ->set('urgency', 5)
         ->set('impact', 5)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();
+});
+
+test('paused tickets still count toward the limit', function () {
+    $client = User::factory()->create();
+    Ticket::factory()->count(5)->create(['user_id' => $client->id, 'status' => 'paused']);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.create-ticket')
+        ->set('title', 'No debería poder crear otro')
+        ->set('description', 'Mis tickets pausados siguen contando para el límite.')
+        ->set('priority', 5)
+        ->set('urgency', 5)
+        ->set('impact', 5)
+        ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
+        ->call('save')
+        ->assertHasErrors(['title']);
 });
 
 test('an admin can create tickets past the limit configured for clients', function () {

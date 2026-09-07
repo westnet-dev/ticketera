@@ -31,7 +31,7 @@ new class extends Component
         return [
             'isAdmin' => false,
             'openCount' => (clone $myTickets)->open()->count(),
-            'closedCount' => (clone $myTickets)->closed()->count(),
+            'finishedCount' => (clone $myTickets)->finished()->count(),
             'pendingTriageCount' => (clone $myTickets)->where('triage_status', TriageStatus::Pending)->count(),
             'avgPriority' => round((clone $myTickets)->avg('priority') ?? 0, 1),
             'avgUrgency' => round((clone $myTickets)->avg('urgency') ?? 0, 1),
@@ -51,7 +51,7 @@ new class extends Component
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
                 <flux:heading size="sm">{{ __('Tickets por estado') }}</flux:heading>
                 <dl class="mt-3 flex flex-col gap-2">
-                    @foreach (['open' => __('Abierto'), 'in_progress' => __('En Progreso'), 'resolved' => __('Resuelto'), 'closed' => __('Cerrado')] as $status => $label)
+                    @foreach (['draft' => __('Borrador'), 'open' => __('Abierto'), 'in_progress' => __('En Progreso'), 'paused' => __('Pausado'), 'resolved' => __('Resuelto'), 'cancelled' => __('Cancelado')] as $status => $label)
                         <div class="flex items-center justify-between text-sm">
                             <dt class="text-neutral-500 dark:text-neutral-400">{{ $label }}</dt>
                             <dd class="font-semibold">{{ $ticketsByStatus[$status] ?? 0 }}</dd>
@@ -112,9 +112,9 @@ new class extends Component
             </div>
 
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Mis tickets cerrados') }}</flux:heading>
+                <flux:heading size="sm">{{ __('Mis tickets finalizados') }}</flux:heading>
                 <div class="flex h-full items-center justify-center">
-                    <p class="text-6xl">{{ $closedCount }}</p>
+                    <p class="text-6xl">{{ $finishedCount }}</p>
                 </div>
             </div>
 
@@ -153,7 +153,7 @@ new class extends Component
                 <ul class="mt-3 flex flex-col gap-2">
                     @foreach ($recentTickets as $ticket)
                         <li class="flex items-center justify-between text-sm">
-                            <a href="{{ route('ticket.show', $ticket) }}" wire:navigate class="hover:underline">
+                            <a href="{{ route('ticket.show', $ticket) }}" wire:navigate class="hover:underline font-thin">
                                 {{ $ticket->title }}
                             </a>
                             <flux:badge size="sm" :color="$ticket->statusColor()">

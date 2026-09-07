@@ -26,9 +26,23 @@ class TicketFactory extends Factory
             'priority' => fake()->numberBetween(1, 10),
             'urgency' => fake()->numberBetween(1, 10),
             'impact' => fake()->numberBetween(1, 10),
-            'status' => fake()->randomElement(['open', 'in_progress', 'resolved', 'closed']),
+            'status' => fake()->randomElement(['open', 'in_progress', 'paused', 'resolved', 'cancelled']),
             'triage_status' => TriageStatus::Approved,
             'assigned_to' => null,
         ];
+    }
+
+    /**
+     * Indicate that the ticket is an unsubmitted draft.
+     */
+    public function draft(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => 'draft',
+            'description' => null,
+            'priority' => 5,
+            'urgency' => 5,
+            'impact' => 5,
+        ]);
     }
 }

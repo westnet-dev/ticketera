@@ -10,7 +10,7 @@ test('an admin sees app-wide ticket metrics on the dashboard', function () {
     $clientB = User::factory()->create();
 
     Ticket::factory()->for($clientA)->create(['status' => 'open', 'priority' => 10, 'assigned_to' => null]);
-    Ticket::factory()->for($clientB)->create(['status' => 'closed', 'priority' => 2, 'assigned_to' => $admin->id]);
+    Ticket::factory()->for($clientB)->create(['status' => 'resolved', 'priority' => 2, 'assigned_to' => $admin->id]);
 
     $this->actingAs($admin)
         ->get(route('dashboard'))

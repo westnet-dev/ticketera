@@ -7,7 +7,11 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
+})->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
@@ -17,7 +21,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'role:client,admin'])->prefix('tickets')->group(function () {
     Route::get('/', [TicketController::class, 'index'])->name('ticket.index');
     Route::get('/create', [TicketController::class, 'create'])->name('ticket.create');
-    Route::get('/closed', [TicketController::class, 'closed'])->name('ticket.closed');
+    Route::get('/finished', [TicketController::class, 'finished'])->name('ticket.finished');
+    Route::get('/drafts', [TicketController::class, 'drafts'])->name('ticket.drafts');
 });
 
 /* TICKET DETAIL (shared across roles, authorized via TicketPolicy::view) */
