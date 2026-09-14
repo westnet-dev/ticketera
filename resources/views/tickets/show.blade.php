@@ -82,6 +82,9 @@
                 <livewire:tickets.ticket-triage-actions :ticket="$ticket" />
             @endcan
 
+            <div class="mt-6">
+                <livewire:tickets.ticket-history-timeline :ticket="$ticket" />
+            </div>
         </div>
     </div>
 </x-layouts::app>

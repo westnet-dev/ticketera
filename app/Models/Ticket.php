@@ -63,6 +63,11 @@ class Ticket extends Model
         return $this->hasMany(TicketMessage::class)->orderBy('created_at');
     }
 
+    public function history(): HasMany
+    {
+        return $this->hasMany(TicketHistory::class)->orderBy('created_at');
+    }
+
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
@@ -178,7 +183,12 @@ class Ticket extends Model
 
     public function triageStatusLabel(): string
     {
-        return match ($this->triage_status) {
+        return static::labelForTriageStatus($this->triage_status);
+    }
+
+    public static function labelForTriageStatus(TriageStatus $status): string
+    {
+        return match ($status) {
             TriageStatus::Pending => __('Pendiente de triage'),
             TriageStatus::Approved => __('Aprobado'),
             TriageStatus::Rejected => __('Rechazado'),

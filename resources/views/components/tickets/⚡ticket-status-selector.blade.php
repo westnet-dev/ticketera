@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Ticket;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
@@ -16,7 +17,7 @@ new class extends Component
             return;
         }
 
-        $this->ticket->update(['status' => $status]);
+        DB::transaction(fn () => $this->ticket->update(['status' => $status]));
     }
 };
 ?>

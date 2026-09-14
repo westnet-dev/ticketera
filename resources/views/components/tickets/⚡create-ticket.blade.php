@@ -5,6 +5,7 @@ use App\Models\Ticket;
 use App\Models\TicketImage;
 use App\Models\TicketSetting;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -129,7 +130,7 @@ new class extends Component
 
         $this->validateInput();
 
-        $this->draft->update([
+        DB::transaction(fn () => $this->draft->update([
             'title' => $this->title,
             'description' => $this->description,
             'priority' => $this->priority,
@@ -137,7 +138,7 @@ new class extends Component
             'impact' => $this->impact,
             'status' => 'open',
             'triage_status' => auth()->user()->isAdmin() ? TriageStatus::Approved : TriageStatus::Pending,
-        ]);
+        ]));
 
         $this->storeUploadedImages($this->draft);
 

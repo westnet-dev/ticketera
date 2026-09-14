@@ -108,6 +108,82 @@ test('a guest cannot change a ticket status', function () {
     expect($ticket->refresh()->status)->toBe('open');
 });
 
+test('an admin can filter the tickets list by status', function () {
+    $admin = User::factory()->admin()->create();
+    $openTicket = Ticket::factory()->create(['status' => 'open']);
+    $resolvedTicket = Ticket::factory()->create(['status' => 'resolved']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.admin-ticket-list')
+        ->call('filterByStatus', 'open')
+        ->assertSee($openTicket->title)
+        ->assertDontSee($resolvedTicket->title);
+});
+
+test('filtering by "todos" clears the status filter', function () {
+    $admin = User::factory()->admin()->create();
+    $openTicket = Ticket::factory()->create(['status' => 'open']);
+    $resolvedTicket = Ticket::factory()->create(['status' => 'resolved']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.admin-ticket-list')
+        ->call('filterByStatus', 'open')
+        ->call('filterByStatus', null)
+        ->assertSee($openTicket->title)
+        ->assertSee($resolvedTicket->title);
+});
+
+test('an invalid status filter is rejected', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.admin-ticket-list')
+        ->call('filterByStatus', 'not-a-real-status')
+        ->assertSee($ticket->title);
+});
+
+test('an admin can filter the tickets list by unassigned', function () {
+    $admin = User::factory()->admin()->create();
+    $unassignedTicket = Ticket::factory()->create(['status' => 'open', 'assigned_to' => null]);
+    $assignedTicket = Ticket::factory()->create(['status' => 'open', 'assigned_to' => $admin->id]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.admin-ticket-list')
+        ->call('filterByAssigned', 'unassigned')
+        ->assertSee($unassignedTicket->title)
+        ->assertDontSee($assignedTicket->title);
+});
+
+test('filtering by "todos" clears the unassigned filter', function () {
+    $admin = User::factory()->admin()->create();
+    $unassignedTicket = Ticket::factory()->create(['status' => 'open', 'assigned_to' => null]);
+    $assignedTicket = Ticket::factory()->create(['status' => 'open', 'assigned_to' => $admin->id]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.admin-ticket-list')
+        ->call('filterByAssigned', 'unassigned')
+        ->call('filterByAssigned', null)
+        ->assertSee($unassignedTicket->title)
+        ->assertSee($assignedTicket->title);
+});
+
+test('an invalid assigned filter is rejected', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.admin-ticket-list')
+        ->call('filterByAssigned', 'not-a-real-value')
+        ->assertSee($ticket->title);
+});
+
 test('an invalid status value is rejected', function () {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->create(['status' => 'open']);

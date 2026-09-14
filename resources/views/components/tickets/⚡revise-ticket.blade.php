@@ -3,6 +3,7 @@
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketImage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -58,14 +59,14 @@ new class extends Component
             return;
         }
 
-        $this->ticket->update([
+        DB::transaction(fn () => $this->ticket->update([
             'title' => $validated['title'],
             'description' => $validated['description'],
             'priority' => $validated['priority'],
             'urgency' => $validated['urgency'],
             'impact' => $validated['impact'],
             'triage_status' => TriageStatus::Pending,
-        ]);
+        ]));
 
         TicketImage::query()
             ->whereIn('id', $this->imagesToRemove)

@@ -115,6 +115,34 @@ test('an admin can reject a pending ticket with a reason from the ticket detail 
     expect($ticket->messages()->where('body', 'Falta más información sobre el problema.')->exists())->toBeTrue();
 });
 
+test('approving a ticket twice from the ticket detail page is a no-op instead of a 403', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Pending]);
+
+    $this->actingAs($admin);
+
+    $component = Livewire::test('tickets.ticket-triage-actions', ['ticket' => $ticket]);
+
+    $component->call('approve')->assertHasNoErrors();
+    $component->call('approve')->assertHasNoErrors();
+
+    expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Approved);
+});
+
+test('rejecting an already-approved ticket from the ticket detail page is a no-op instead of a 403', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Approved]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.ticket-triage-actions', ['ticket' => $ticket])
+        ->set('rejectionReason', 'Motivo cualquiera.')
+        ->call('reject')
+        ->assertHasNoErrors();
+
+    expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Approved);
+});
+
 test('rejecting from the ticket detail page without a reason fails validation and does not change triage status', function () {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->create(['triage_status' => TriageStatus::Pending]);

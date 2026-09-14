@@ -112,17 +112,33 @@ new class extends Component
                                     <flux:button size="sm" variant="ghost" wire:click="cancelRejecting">{{ __('Cancelar') }}</flux:button>
                                 </form>
                             @else
-                                <flux:button
-                                    size="sm"
-                                    variant="primary"
-                                    wire:click="approve({{ $ticket->id }})"
-                                    wire:confirm="{{ __('¿Aprobar este ticket?') }}"
-                                >
-                                    {{ __('Aprobar') }}
-                                </flux:button>
+                                <flux:modal.trigger name="approve-ticket-triage-{{ $ticket->id }}">
+                                    <flux:button size="sm" variant="primary">
+                                        {{ __('Aprobar') }}
+                                    </flux:button>
+                                </flux:modal.trigger>
                                 <flux:button size="sm" variant="danger" wire:click="startRejecting({{ $ticket->id }})">
                                     {{ __('Rechazar') }}
                                 </flux:button>
+
+                                <flux:modal name="approve-ticket-triage-{{ $ticket->id }}" class="max-w-lg">
+                                    <div class="space-y-6">
+                                        <div>
+                                            <flux:heading size="lg">{{ __('Aprobar ticket') }}</flux:heading>
+                                            <flux:subheading>{{ __('El ticket saldrá de triage y quedará disponible para asignar.') }}</flux:subheading>
+                                        </div>
+
+                                        <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+                                            <flux:modal.close>
+                                                <flux:button variant="filled">{{ __('Cancelar') }}</flux:button>
+                                            </flux:modal.close>
+
+                                            <flux:button variant="primary" wire:click="approve({{ $ticket->id }})" wire:loading.attr="disabled" wire:target="approve({{ $ticket->id }})">
+                                                {{ __('Confirmar aprobación') }}
+                                            </flux:button>
+                                        </div>
+                                    </div>
+                                </flux:modal>
                             @endif
                         </flux:table.cell>
                     </flux:table.row>

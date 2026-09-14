@@ -3,6 +3,7 @@
 use App\Enums\Role;
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -18,13 +19,39 @@ new class extends Component
     #[Url]
     public string $sortDirection = 'desc';
 
+    #[Url]
+    public ?string $statusFilter = null;
+
+    #[Url]
+    public ?string $assignedFilter = null;
+
+    public function filterByAssigned(?string $value): void
+    {
+        if ($value !== null && $value !== 'unassigned') {
+            return;
+        }
+
+        $this->assignedFilter = $value;
+        $this->resetPage();
+    }
+
+    public function filterByStatus(?string $status): void
+    {
+        if ($status !== null && ! in_array($status, Ticket::STATUSES, true)) {
+            return;
+        }
+
+        $this->statusFilter = $status;
+        $this->resetPage();
+    }
+
     public function assign(int $ticketId, ?string $userId): void
     {
         $ticket = Ticket::findOrFail($ticketId);
 
         Gate::authorize('assign', $ticket);
 
-        $ticket->update(['assigned_to' => $userId !== null && $userId !== '' ? $userId : null]);
+        DB::transaction(fn () => $ticket->update(['assigned_to' => $userId !== null && $userId !== '' ? $userId : null]));
     }
 
     public function sort(string $column): void
@@ -48,10 +75,24 @@ new class extends Component
         $sortBy = in_array($this->sortBy, ['priority', 'urgency', 'impact', 'created_at'], true) ? $this->sortBy : 'created_at';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
-        $tickets = Ticket::query()
+        $query = Ticket::query()
             ->approved()
             ->where('status', '!=', 'draft')
-            ->with(['user', 'assignedTo'])
+            ->with(['user', 'assignedTo']);
+
+        if ($this->statusFilter !== null) {
+            $query->where('status', $this->statusFilter);
+        }
+
+        if ($this->statusFilter === null) {
+            $query->whereNotIn('status', ['resolved']);
+        }
+
+        if ($this->assignedFilter === 'unassigned') {
+            $query->unassigned();
+        }
+
+        $tickets = $query
             ->orderBy($sortBy, $sortDirection)
             ->paginate(10);
 
@@ -59,6 +100,8 @@ new class extends Component
             'tickets' => $tickets,
             'sortBy' => $sortBy,
             'sortDirection' => $sortDirection,
+            'statusFilter' => $this->statusFilter,
+            'assignedFilter' => $this->assignedFilter,
             'assignableUsers' => User::query()
                 ->where('role', Role::Admin)
                 ->orderBy('name')
@@ -68,7 +111,38 @@ new class extends Component
 };
 ?>
 
-<div>
+<div class="flex flex-col gap-4">
+    <flux:button.group>
+        <flux:button
+            size="sm"
+            :variant="$statusFilter === null && $assignedFilter === null ? 'primary' : 'filled'"
+            wire:click="filterByStatus(null); filterByAssigned(null)"
+        >
+            {{ __('Todos') }}
+        </flux:button>
+        <flux:button
+            size="sm"
+            :variant="$assignedFilter === 'unassigned' ? 'primary' : 'filled'"
+            wire:click="filterByAssigned('unassigned'); filterByStatus(null)"
+        >
+            {{ __('Sin Asignar') }}
+        </flux:button>
+        <flux:button
+            size="sm"
+            :variant="$statusFilter === 'resolved' ? 'primary' : 'filled'"
+            wire:click="filterByStatus('resolved'); filterByAssigned(null)"
+        >
+            {{ __('Resueltos') }}
+        </flux:button>
+        <flux:button
+            size="sm"
+            :variant="$statusFilter === 'cancelled' ? 'primary' : 'filled'"
+            wire:click="filterByStatus('cancelled'); filterByAssigned(null)"
+        >
+            {{ __('Cancelados') }}
+        </flux:button>
+    </flux:button.group>
+
     @if ($tickets->isEmpty())
         <div class="flex flex-col items-center justify-center gap-2 rounded-lg border border-neutral-200 p-8 dark:border-neutral-700">
             <x-heroicon-o-ticket style="width: 200px;" class="mx-auto text-neutral-400" />
