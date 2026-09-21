@@ -82,6 +82,14 @@ class TicketPolicy
     }
 
     /**
+     * Determine whether the user can create a ticket authored by someone else.
+     */
+    public function createForOthers(User $user): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
      * Determine whether the user can update the model.
      */
     public function update(User $user, Ticket $ticket): bool

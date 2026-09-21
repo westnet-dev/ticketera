@@ -1,12 +1,15 @@
 <?php
 
+use App\Enums\Role;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketImage;
 use App\Models\TicketSetting;
+use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -22,6 +25,7 @@ new class extends Component
     public $urgency;
     public $impact;
     public $images = [];
+    public $author_id = '';
 
     public function mount(?Ticket $draft = null): void
     {
@@ -36,23 +40,45 @@ new class extends Component
         }
     }
 
+    /**
+     * The author an admin picked to file this ticket on behalf of, if any.
+     */
+    private function resolvedAuthorId(): ?int
+    {
+        if ($this->author_id === null || $this->author_id === '') {
+            return null;
+        }
+
+        $authorId = (int) $this->author_id;
+
+        return $authorId === auth()->id() ? null : $authorId;
+    }
+
     public function validateInput()
     {
         $hasExistingImages = $this->draft && $this->draft->images()->exists();
+        $imagesAreOptional = $hasExistingImages || $this->resolvedAuthorId() !== null;
 
         $this->validate([
+            'author_id' => ['nullable', Rule::exists('users', 'id')->where('role', Role::Client->value)->whereNull('deleted_at')],
             'title' => 'required|string|min:5|max:255',
             'description' => 'required|string|min:10',
             'priority' => 'required|integer|min:1|max:10',
             'urgency' => 'required|integer|min:1|max:10',
             'impact' => 'required|integer|min:1|max:10',
-            'images' => [$hasExistingImages ? 'nullable' : 'required', 'array', 'max:5'],
+            'images' => [$imagesAreOptional ? 'nullable' : 'required', 'array', 'max:5'],
             'images.*' => 'image|max:2048', // Each image must be an image file and not exceed 2MB
         ]);
     }
 
     public function save()
     {
+        $authorId = $this->resolvedAuthorId();
+
+        if ($authorId !== null) {
+            Gate::authorize('createForOthers', Ticket::class);
+        }
+
         try {
             Gate::authorize('create', Ticket::class);
         } catch (AuthorizationException $e) {
@@ -63,7 +89,9 @@ new class extends Component
 
         $this->validateInput();
 
-        $ticket = auth()->user()->tickets()->create([
+        $ticket = Ticket::create([
+            'user_id' => $authorId ?? auth()->id(),
+            'created_by' => auth()->id(),
             'title' => $this->title,
             'description' => $this->description,
             'priority' => $this->priority,
@@ -74,13 +102,21 @@ new class extends Component
 
         $this->storeUploadedImages($ticket);
 
-        $this->reset(['title', 'description', 'priority', 'urgency', 'impact', 'images']);
+        $this->reset(['title', 'description', 'priority', 'urgency', 'impact', 'images', 'author_id']);
 
-        session()->flash('message', 'Ticket created successfully!');
+        session()->flash('message', $authorId !== null
+            ? __('Ticket creado a nombre de :name.', ['name' => $ticket->user->name])
+            : 'Ticket created successfully!');
     }
 
     public function saveDraft()
     {
+        if ($this->resolvedAuthorId() !== null) {
+            $this->addError('author_id', __('No se puede guardar como borrador un ticket a nombre de otro usuario.'));
+
+            return;
+        }
+
         $this->validate([
             'title' => 'required|string|min:5|max:255',
         ]);
@@ -105,7 +141,7 @@ new class extends Component
             return;
         }
 
-        $draft = auth()->user()->tickets()->create([...$attributes, 'status' => 'draft']);
+        $draft = auth()->user()->tickets()->create([...$attributes, 'created_by' => auth()->id(), 'status' => 'draft']);
 
         $this->storeUploadedImages($draft);
 
@@ -154,6 +190,18 @@ new class extends Component
         return redirect()->route('ticket.drafts');
     }
 
+    /**
+     * @return array{clients: \Illuminate\Support\Collection<int, User>}
+     */
+    public function with(): array
+    {
+        return [
+            'clients' => auth()->user()->isAdmin()
+                ? User::query()->role(Role::Client->value)->orderBy('name')->get()
+                : collect(),
+        ];
+    }
+
     private function storeUploadedImages(Ticket $ticket): void
     {
         foreach ($this->images as $image) {
@@ -175,6 +223,26 @@ new class extends Component
 
     <form wire:submit.prevent="{{ $draft ? 'submit' : 'save' }}" class="gap-5 grid md:grid-cols-3">
         <div class="flex flex-col gap-5 col-span-3">
+            @if (auth()->user()->isAdmin() && ! $draft)
+                <flux:field>
+                    <flux:label>{{ __('Autor') }}</flux:label>
+                    <flux:description>
+                        {{ __('Elegí un cliente para cargar el ticket a su nombre. Dejalo en vos para que el ticket sea tuyo.') }}
+                    </flux:description>
+                    <flux:select wire:model.live="author_id">
+                        <flux:select.option value="">
+                            {{ __('Yo (:name)', ['name' => auth()->user()->name]) }}
+                        </flux:select.option>
+                        @foreach ($clients as $client)
+                            <flux:select.option :key="$client->id" value="{{ $client->id }}">
+                                {{ $client->name }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:error name="author_id" />
+                </flux:field>
+            @endif
+
             <flux:field>
                 <flux:label>Título</flux:label>
                 <flux:description class="">Indica un título que resuma tu solicitud o problema.</flux:description>
@@ -235,9 +303,11 @@ new class extends Component
                     {{ __('Enviar') }}
                 </flux:button>
             @else
-                <flux:button type="button" variant="filled" wire:click="saveDraft">
-                    {{ __('Guardar como borrador') }}
-                </flux:button>
+                @unless ($author_id)
+                    <flux:button type="button" variant="filled" wire:click="saveDraft">
+                        {{ __('Guardar como borrador') }}
+                    </flux:button>
+                @endunless
                 <flux:button type="submit" variant="primary">
                     {{ __('Crear Ticket') }}
                 </flux:button>

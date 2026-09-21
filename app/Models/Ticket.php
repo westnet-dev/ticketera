@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $user_id
+ * @property int|null $created_by
  * @property string $title
  * @property string $description
  * @property int $priority
@@ -26,7 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['user_id', 'title', 'description', 'priority', 'urgency', 'impact', 'assigned_to', 'status', 'triage_status'])]
+#[Fillable(['user_id', 'created_by', 'title', 'description', 'priority', 'urgency', 'impact', 'assigned_to', 'status', 'triage_status'])]
 
 class Ticket extends Model
 {
@@ -51,6 +52,14 @@ class Ticket extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The user who actually filed the ticket, which may differ from its author.
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function images(): HasMany
@@ -160,6 +169,14 @@ class Ticket extends Model
     public function isDraft(): bool
     {
         return $this->status === 'draft';
+    }
+
+    /**
+     * Whether someone other than the ticket's author filed it on their behalf.
+     */
+    public function wasCreatedOnBehalf(): bool
+    {
+        return $this->created_by !== null && $this->created_by !== $this->user_id;
     }
 
     public function isTriageApproved(): bool

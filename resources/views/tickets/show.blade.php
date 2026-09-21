@@ -57,6 +57,14 @@
         <div class="col-span-1 ml-4 flex flex-col gap-2 bg-neutral-700 p-4 rounded-xl">
             <p class="font-semibold mb-4">Propiedades</p>
             <p>Creación: {{ $ticket->created_at->format('d/m/Y H:i') }}</p>
+            @if ($ticket->wasCreatedOnBehalf())
+                <p>
+                    {{ __('Creado por :author en nombre de :owner', [
+                        'author' => $ticket->createdBy?->name ?? __('un usuario eliminado'),
+                        'owner' => $ticket->user->name,
+                    ]) }}
+                </p>
+            @endif
             <p>Actualización: {{ $ticket->updated_at->format('d/m/Y H:i') }}</p>
             <div class="flex items-center gap-2">
                 Estado:

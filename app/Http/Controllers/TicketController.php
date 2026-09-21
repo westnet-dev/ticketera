@@ -38,6 +38,8 @@ class TicketController extends Controller
 
         Gate::authorize('view', $ticket);
 
+        $ticket->loadMissing(['user', 'createdBy']);
+
         return view('tickets.show', ['ticket' => $ticket]);
     }
 }

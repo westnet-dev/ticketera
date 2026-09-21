@@ -199,6 +199,7 @@ return [
 
     'attributes' => [
         'area_id' => 'área',
+        'author_id' => 'autor',
         'body' => 'mensaje',
         'current_password' => 'contraseña actual',
         'description' => 'descripción',
