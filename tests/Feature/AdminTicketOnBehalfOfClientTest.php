@@ -76,38 +76,38 @@ test('images are optional when an admin files on behalf of a client', function (
     expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
 });
 
-test('a client still needs to attach an image to their own ticket', function () {
+test('a client can file their own ticket without attaching an image', function () {
     $client = User::factory()->create();
 
     $this->actingAs($client);
 
     Livewire::test('tickets.create-ticket')
         ->set('title', 'No adjunto ninguna imagen')
-        ->set('description', 'Este ticket no debería poder crearse sin evidencia.')
+        ->set('description', 'Este ticket debería poder crearse sin evidencia adjunta.')
         ->set('priority', 5)
         ->set('urgency', 5)
         ->set('impact', 5)
         ->call('save')
-        ->assertHasErrors(['images']);
+        ->assertHasNoErrors();
 
-    expect(Ticket::count())->toBe(0);
+    expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
 });
 
-test('an admin filing their own ticket still needs to attach an image', function () {
+test('an admin can file their own ticket without attaching an image', function () {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin);
 
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Pedido propio sin evidencia')
-        ->set('description', 'Sin autor seleccionado la imagen sigue siendo obligatoria.')
+        ->set('description', 'Sin autor seleccionado la imagen tampoco es obligatoria.')
         ->set('priority', 5)
         ->set('urgency', 5)
         ->set('impact', 5)
         ->call('save')
-        ->assertHasErrors(['images']);
+        ->assertHasNoErrors();
 
-    expect(Ticket::count())->toBe(0);
+    expect(Ticket::where('user_id', $admin->id)->count())->toBe(1);
 });
 
 test('a client cannot file a ticket authored by someone else', function () {
@@ -217,7 +217,7 @@ test('an admin can file for a client who already reached their ticket limit', fu
     $client = User::factory()->create();
 
     Ticket::factory()
-        ->count(TicketSetting::current()->max_open_tickets_per_user)
+        ->count(TicketSetting::current()->max_open_tickets_per_area)
         ->create(['user_id' => $client->id, 'status' => 'open']);
 
     $this->actingAs($admin);
@@ -233,13 +233,13 @@ test('an admin can file for a client who already reached their ticket limit', fu
         ->assertHasNoErrors();
 
     expect(Ticket::where('user_id', $client->id)->count())
-        ->toBe(TicketSetting::current()->max_open_tickets_per_user + 1);
+        ->toBe(TicketSetting::current()->max_open_tickets_per_area + 1);
 });
 
 test('a ticket filed on behalf counts toward the client limit afterwards', function () {
     $admin = User::factory()->admin()->create();
     $client = User::factory()->create();
-    $max = TicketSetting::current()->max_open_tickets_per_user;
+    $max = TicketSetting::current()->max_open_tickets_per_area;
 
     Ticket::factory()->count($max - 1)->create(['user_id' => $client->id, 'status' => 'open']);
 

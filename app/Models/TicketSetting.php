@@ -8,15 +8,15 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property int $max_open_tickets_per_user
+ * @property int $max_open_tickets_per_area
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['max_open_tickets_per_user'])]
+#[Fillable(['max_open_tickets_per_area'])]
 class TicketSetting extends Model
 {
     public static function current(): self
     {
-        return static::query()->firstOrCreate([], ['max_open_tickets_per_user' => 5]);
+        return static::query()->firstOrCreate([], ['max_open_tickets_per_area' => 5]);
     }
 }

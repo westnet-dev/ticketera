@@ -83,6 +83,10 @@ class TicketPolicy
 
     /**
      * Determine whether the user can create models.
+     *
+     * The cap is evaluated against the user's area, so it stays finite no matter
+     * how many people the area has. A user with no area falls back to their own
+     * count against that same number.
      */
     public function create(User $user): bool
     {
@@ -90,7 +94,7 @@ class TicketPolicy
             return true;
         }
 
-        return $user->tickets()->whereNotIn('status', ['resolved', 'cancelled', 'draft'])->count() < TicketSetting::current()->max_open_tickets_per_user;
+        return $user->openTicketCountForLimit() < TicketSetting::current()->max_open_tickets_per_area;
     }
 
     /**

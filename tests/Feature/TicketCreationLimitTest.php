@@ -6,7 +6,13 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 
-test('a client under the limit can create a new ticket', function () {
+/**
+ * The cap is an area-wide budget. A user with no area has no budget to share and
+ * falls back to counting their own tickets, which is what this file covers —
+ * `User::factory()` leaves `area_id` null. The per-area rule lives in
+ * `TicketAreaLimitTest`.
+ */
+test('a client without an area under the limit can create a new ticket', function () {
     $client = User::factory()->create();
     Ticket::factory()->count(4)->create(['user_id' => $client->id, 'status' => 'open']);
 
@@ -25,7 +31,7 @@ test('a client under the limit can create a new ticket', function () {
     expect(Ticket::where('user_id', $client->id)->count())->toBe(5);
 });
 
-test('a client who already reached the limit cannot create a new ticket', function () {
+test('a client without an area who already reached the limit cannot create a new ticket', function () {
     $client = User::factory()->create();
     Ticket::factory()->count(5)->create(['user_id' => $client->id, 'status' => 'open']);
 
@@ -44,7 +50,26 @@ test('a client who already reached the limit cannot create a new ticket', functi
     expect(Ticket::where('user_id', $client->id)->count())->toBe(5);
 });
 
-test('resolving one of the tickets frees up room for a new one', function () {
+test('the blocking message for a client without an area names their own cap', function () {
+    $client = User::factory()->create();
+    Ticket::factory()->count(5)->create(['user_id' => $client->id, 'status' => 'open']);
+
+    $this->actingAs($client);
+
+    $component = Livewire::test('tickets.create-ticket')
+        ->set('title', 'Otro pedido más')
+        ->set('description', 'Este pedido no debería poder crearse.')
+        ->set('priority', 5)
+        ->set('urgency', 5)
+        ->set('impact', 5)
+        ->call('save');
+
+    expect($component->errors()->first('title'))
+        ->toContain('Alcanzaste el máximo')
+        ->not->toContain('Tu área');
+});
+
+test('resolving one of their own tickets frees up room for a client without an area', function () {
     $client = User::factory()->create();
     $tickets = Ticket::factory()->count(5)->create(['user_id' => $client->id, 'status' => 'open']);
     $tickets->first()->update(['status' => 'resolved']);
@@ -100,6 +125,25 @@ test('paused tickets still count toward the limit', function () {
         ->assertHasErrors(['title']);
 });
 
+test('the unclosed tickets of another client without an area do not count', function () {
+    $client = User::factory()->create();
+    $stranger = User::factory()->create();
+    Ticket::factory()->count(8)->create(['user_id' => $stranger->id, 'status' => 'open']);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.create-ticket')
+        ->set('title', 'Los tickets ajenos no me bloquean')
+        ->set('description', 'Sin área, cada cliente se mide solamente contra sus propios tickets.')
+        ->set('priority', 5)
+        ->set('urgency', 5)
+        ->set('impact', 5)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
+});
+
 test('an admin can create tickets past the limit configured for clients', function () {
     $admin = User::factory()->admin()->create();
     Ticket::factory()->count(5)->create(['user_id' => $admin->id, 'status' => 'open']);
@@ -127,11 +171,11 @@ test('an admin can view and update the ticket settings page', function () {
         ->assertOk();
 
     Livewire::test('pages::settings.tickets')
-        ->set('max_open_tickets_per_user', 3)
+        ->set('max_open_tickets_per_area', 3)
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(TicketSetting::current()->max_open_tickets_per_user)->toBe(3);
+    expect(TicketSetting::current()->max_open_tickets_per_area)->toBe(3);
 });
 
 test('a client cannot access the ticket settings page', function () {
@@ -146,7 +190,7 @@ test('lowering the limit does not affect existing tickets, only blocks new creat
     $client = User::factory()->create();
     Ticket::factory()->count(5)->create(['user_id' => $client->id, 'status' => 'open']);
 
-    TicketSetting::current()->update(['max_open_tickets_per_user' => 2]);
+    TicketSetting::current()->update(['max_open_tickets_per_area' => 2]);
 
     expect(Ticket::where('user_id', $client->id)->count())->toBe(5);
 

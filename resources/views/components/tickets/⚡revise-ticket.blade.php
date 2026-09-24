@@ -53,8 +53,8 @@ new class extends Component
         $remainingCount = $this->ticket->images()->whereNotIn('id', $this->imagesToRemove)->count();
         $resultingCount = $remainingCount + count($this->newImages);
 
-        if ($resultingCount < 1 || $resultingCount > 5) {
-            $this->addError('newImages', __('El ticket debe tener entre 1 y 5 imágenes en total.'));
+        if ($resultingCount > 5) {
+            $this->addError('newImages', __('El ticket puede tener hasta 5 imágenes en total.'));
 
             return;
         }

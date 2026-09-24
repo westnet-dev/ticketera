@@ -343,10 +343,12 @@ test('the creator of a rejected ticket can add a new image when resubmitting', f
     expect($ticket->images()->count())->toBe(2);
 });
 
-test('resubmitting a ticket cannot leave it with zero images', function () {
+test('resubmitting a ticket may leave it with zero images', function () {
+    Storage::fake('public');
+
     $owner = User::factory()->create();
     $ticket = Ticket::factory()->create(['user_id' => $owner->id, 'triage_status' => TriageStatus::Rejected]);
-    $image = $ticket->images()->create(['image_path' => 'images/tickets/unica.jpg']);
+    $image = $ticket->images()->create(['image_path' => UploadedFile::fake()->image('unica.jpg')->store('tickets', 'public')]);
 
     $this->actingAs($owner);
 
@@ -358,10 +360,11 @@ test('resubmitting a ticket cannot leave it with zero images', function () {
         ->set('impact', 5)
         ->set('imagesToRemove', [$image->id])
         ->call('save')
-        ->assertHasErrors(['newImages']);
+        ->assertHasNoErrors();
 
-    expect(TicketImage::find($image->id))->not->toBeNull();
-    expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Rejected);
+    expect(TicketImage::find($image->id))->toBeNull();
+    expect($ticket->images()->count())->toBe(0);
+    expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Pending);
 });
 
 test('resubmitting a ticket cannot exceed 5 images in total', function () {

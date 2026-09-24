@@ -126,6 +126,14 @@ class Ticket extends Model
         $query->whereIn('status', ['resolved', 'cancelled']);
     }
 
+    /**
+     * Tickets that still represent pending work, which is what the ticket cap counts.
+     */
+    protected function scopeUnclosed($query): void
+    {
+        $query->whereNotIn('status', ['resolved', 'cancelled', 'draft']);
+    }
+
     protected function scopeByPriority($query, int $priority): void
     {
         $query->where('priority', $priority);

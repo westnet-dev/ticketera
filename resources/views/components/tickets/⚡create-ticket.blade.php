@@ -17,6 +17,11 @@ new class extends Component
 {
     use WithFileUploads;
 
+    /**
+     * Total images a ticket may hold, counting the ones already attached to a draft.
+     */
+    private const MAX_IMAGES = 5;
+
     public ?Ticket $draft = null;
 
     public $title;
@@ -54,11 +59,54 @@ new class extends Component
         return $authorId === auth()->id() ? null : $authorId;
     }
 
+    /**
+     * How many more images can still be attached before hitting the per-ticket cap.
+     */
+    private function availableImageSlots(): int
+    {
+        $existing = $this->draft ? $this->draft->images()->count() : 0;
+
+        return max(0, self::MAX_IMAGES - $existing);
+    }
+
+    /**
+     * @return array{images: array<int, string>, 'images.*': string}
+     */
+    private function imageRules(): array
+    {
+        return [
+            'images' => ['nullable', 'array', 'max:'.$this->availableImageSlots()],
+            'images.*' => 'image|max:2048', // Each image must be an image file and not exceed 2MB
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function imageMessages(): array
+    {
+        return [
+            'images.max' => __('Un ticket puede tener hasta :total imágenes en total.', ['total' => self::MAX_IMAGES]),
+        ];
+    }
+
+    /**
+     * The blocking message shown when the ticket cap is reached.
+     *
+     * Names whose cap filled up, because a user with an area can be blocked
+     * without holding a single ticket of their own.
+     */
+    private function limitReachedMessage(string $action): string
+    {
+        $max = TicketSetting::current()->max_open_tickets_per_area;
+
+        return auth()->user()->ticketLimitIsPerArea()
+            ? __('Tu área alcanzó el máximo de :max tickets sin cerrar permitidos. :action', ['max' => $max, 'action' => $action])
+            : __('Alcanzaste el máximo de :max tickets sin cerrar permitidos. :action', ['max' => $max, 'action' => $action]);
+    }
+
     public function validateInput()
     {
-        $hasExistingImages = $this->draft && $this->draft->images()->exists();
-        $imagesAreOptional = $hasExistingImages || $this->resolvedAuthorId() !== null;
-
         $this->validate([
             'author_id' => ['nullable', Rule::exists('users', 'id')->where('role', Role::Client->value)->whereNull('deleted_at')],
             'title' => 'required|string|min:5|max:255',
@@ -66,9 +114,8 @@ new class extends Component
             'priority' => 'required|integer|min:1|max:10',
             'urgency' => 'required|integer|min:1|max:10',
             'impact' => 'required|integer|min:1|max:10',
-            'images' => [$imagesAreOptional ? 'nullable' : 'required', 'array', 'max:5'],
-            'images.*' => 'image|max:2048', // Each image must be an image file and not exceed 2MB
-        ]);
+            ...$this->imageRules(),
+        ], $this->imageMessages());
     }
 
     public function save()
@@ -82,7 +129,7 @@ new class extends Component
         try {
             Gate::authorize('create', Ticket::class);
         } catch (AuthorizationException $e) {
-            $this->addError('title', __('Alcanzaste el máximo de :max tickets sin cerrar permitidos. Cerrá alguno para poder crear uno nuevo.', ['max' => TicketSetting::current()->max_open_tickets_per_user]));
+            $this->addError('title', $this->limitReachedMessage(__('Cerrá alguno para poder crear uno nuevo.')));
 
             return;
         }
@@ -119,7 +166,8 @@ new class extends Component
 
         $this->validate([
             'title' => 'required|string|min:5|max:255',
-        ]);
+            ...$this->imageRules(),
+        ], $this->imageMessages());
 
         $attributes = [
             'title' => $this->title,
@@ -159,7 +207,7 @@ new class extends Component
         try {
             Gate::authorize('create', Ticket::class);
         } catch (AuthorizationException $e) {
-            $this->addError('title', __('Alcanzaste el máximo de :max tickets sin cerrar permitidos. Cerrá alguno para poder enviar este borrador.', ['max' => TicketSetting::current()->max_open_tickets_per_user]));
+            $this->addError('title', $this->limitReachedMessage(__('Cerrá alguno para poder enviar este borrador.')));
 
             return;
         }
@@ -258,10 +306,12 @@ new class extends Component
             </flux:field>
 
             <flux:field>
-                <flux:label>Imágenes</flux:label>
+                <flux:label badge="{{ __('Opcional') }}">Imágenes</flux:label>
+                <flux:description>{{ __('Podés adjuntar hasta 5 imágenes de hasta 2 MB cada una.') }}</flux:description>
                 <input
                     type="file"
                     wire:model="images"
+                    accept="image/*"
                     multiple
                     class="block w-full rounded-lg border border-zinc-200 text-sm text-zinc-600 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 dark:border-zinc-700 dark:text-zinc-300 dark:file:bg-zinc-700 dark:file:text-zinc-200 dark:hover:file:bg-zinc-600"
                 >

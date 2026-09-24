@@ -111,4 +111,25 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Area::class);
     }
+
+    /**
+     * How many unclosed tickets count against this user's ticket cap.
+     *
+     * The cap is an area-wide budget, so a user with an area is measured against
+     * everything their area has pending. A user with no area has no budget to
+     * share and falls back to their own tickets, against that same number.
+     */
+    public function openTicketCountForLimit(): int
+    {
+        return $this->area?->tickets()->unclosed()->count()
+            ?? $this->tickets()->unclosed()->count();
+    }
+
+    /**
+     * Whether this user's ticket cap is shared with their area or their own.
+     */
+    public function ticketLimitIsPerArea(): bool
+    {
+        return $this->area_id !== null;
+    }
 }

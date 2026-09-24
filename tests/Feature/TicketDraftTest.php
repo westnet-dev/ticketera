@@ -144,13 +144,14 @@ test('submitting an incomplete draft fails validation and stays a draft', functi
 
     Livewire::test('tickets.create-ticket', ['draft' => $draft])
         ->call('submit')
-        ->assertHasErrors(['description', 'images']);
+        ->assertHasErrors(['description'])
+        ->assertHasNoErrors(['images']);
 
     expect($draft->refresh()->status)->toBe('draft');
 });
 
 test('a client\'s draft tickets do not count toward the open-ticket cap', function () {
-    TicketSetting::current()->update(['max_open_tickets_per_user' => 1]);
+    TicketSetting::current()->update(['max_open_tickets_per_area' => 1]);
 
     $client = User::factory()->create();
     Ticket::factory()->for($client)->draft()->count(3)->create();
