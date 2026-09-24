@@ -21,6 +21,8 @@ new class extends Component
                 'avgImpact' => round(Ticket::query()->avg('impact') ?? 0, 1),
                 'unassignedCount' => Ticket::approved()->unassigned()->count(),
                 'pendingTriageCount' => Ticket::query()->where('triage_status', TriageStatus::Pending)->count(),
+                'pendingValidationCount' => Ticket::pendingValidation()->count(),
+                'avgRating' => round(Ticket::query()->whereNotNull('resolution_rating')->avg('resolution_rating') ?? 0, 1),
                 'adminCount' => User::activeAdminCount(),
                 'clientCount' => User::activeClientCount(),
             ];
@@ -33,6 +35,7 @@ new class extends Component
             'openCount' => (clone $myTickets)->open()->count(),
             'finishedCount' => (clone $myTickets)->finished()->count(),
             'pendingTriageCount' => (clone $myTickets)->where('triage_status', TriageStatus::Pending)->count(),
+            'pendingValidationCount' => (clone $myTickets)->pendingValidation()->count(),
             'avgPriority' => round((clone $myTickets)->avg('priority') ?? 0, 1),
             'avgUrgency' => round((clone $myTickets)->avg('urgency') ?? 0, 1),
             'avgImpact' => round((clone $myTickets)->avg('impact') ?? 0, 1),
@@ -89,6 +92,19 @@ new class extends Component
             </div>
 
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                <flux:heading size="sm">{{ __('Pendientes de validación') }}</flux:heading>
+                <p class="mt-3 text-2xl font-semibold">{{ $pendingValidationCount }}</p>
+            </div>
+
+            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                <flux:heading size="sm">{{ __('Calificación promedio') }}</flux:heading>
+                <p class="mt-3 flex items-center gap-2 text-2xl font-semibold">
+                    <flux:icon.star variant="solid" class="size-6 text-yellow-500" />
+                    {{ $avgRating }}
+                </p>
+            </div>
+
+            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
                 <flux:heading size="sm">{{ __('Usuarios') }}</flux:heading>
                 <dl class="mt-3 flex flex-col gap-2">
                     <div class="flex items-center justify-between text-sm">
@@ -103,6 +119,28 @@ new class extends Component
             </div>
         </div>
     @else
+        @if ($pendingValidationCount > 0)
+            <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-yellow-500/50 bg-yellow-500/10 p-4">
+                <div>
+                    <flux:heading size="sm">
+                        {{ trans_choice('Tenés :count ticket esperando tu validación|Tenés :count tickets esperando tu validación', $pendingValidationCount, ['count' => $pendingValidationCount]) }}
+                    </flux:heading>
+                    <flux:subheading>
+                        {{ __('Entrá a cada ticket para confirmar si el pedido quedó resuelto y calificar la solución.') }}
+                    </flux:subheading>
+                </div>
+
+                <flux:button
+                    size="sm"
+                    variant="primary"
+                    href="{{ route('ticket.pending-validation') }}"
+                    wire:navigate
+                >
+                    {{ __('Ver pendientes') }}
+                </flux:button>
+            </div>
+        @endif
+
         <div class="grid gap-4 md:grid-cols-4">
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
                 <flux:heading size="sm">{{ __('Mis tickets abiertos') }}</flux:heading>

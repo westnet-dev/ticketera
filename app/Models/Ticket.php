@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TriageStatus;
+use App\Enums\ValidationStatus;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,11 +24,14 @@ use Illuminate\Support\Carbon;
  * @property int $impact
  * @property string $status
  * @property TriageStatus $triage_status
+ * @property ValidationStatus $validation_status
+ * @property int|null $resolution_rating
+ * @property Carbon|null $validated_at
  * @property int|null $assigned_to
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['user_id', 'created_by', 'title', 'description', 'priority', 'urgency', 'impact', 'assigned_to', 'status', 'triage_status'])]
+#[Fillable(['user_id', 'created_by', 'title', 'description', 'priority', 'urgency', 'impact', 'assigned_to', 'status', 'triage_status', 'validation_status', 'resolution_rating', 'validated_at'])]
 
 class Ticket extends Model
 {
@@ -46,6 +50,8 @@ class Ticket extends Model
     {
         return [
             'triage_status' => TriageStatus::class,
+            'validation_status' => ValidationStatus::class,
+            'validated_at' => 'datetime',
         ];
     }
 
@@ -135,6 +141,16 @@ class Ticket extends Model
         $query->where('triage_status', TriageStatus::Approved);
     }
 
+    protected function scopePendingValidation($query): void
+    {
+        $query->where('validation_status', ValidationStatus::Pending);
+    }
+
+    protected function scopeValidated($query): void
+    {
+        $query->where('validation_status', ValidationStatus::Confirmed);
+    }
+
     public function statusColor(): string
     {
         return match ($this->status) {
@@ -209,6 +225,48 @@ class Ticket extends Model
             TriageStatus::Pending => __('Pendiente de triage'),
             TriageStatus::Approved => __('Aprobado'),
             TriageStatus::Rejected => __('Rechazado'),
+        };
+    }
+
+    /**
+     * Whether the ticket's author still has to validate the resolution.
+     */
+    public function awaitsValidation(): bool
+    {
+        return $this->validation_status === ValidationStatus::Pending;
+    }
+
+    /**
+     * Whether the ticket ever entered the validation cycle, either still
+     * awaiting an answer or already decided by its author.
+     */
+    public function validationWasRequested(): bool
+    {
+        return $this->validation_status !== ValidationStatus::NotRequested;
+    }
+
+    public function validationStatusColor(): string
+    {
+        return match ($this->validation_status) {
+            ValidationStatus::NotRequested => 'zinc',
+            ValidationStatus::Pending => 'yellow',
+            ValidationStatus::Confirmed => 'green',
+            ValidationStatus::Rejected => 'red',
+        };
+    }
+
+    public function validationStatusLabel(): string
+    {
+        return static::labelForValidationStatus($this->validation_status);
+    }
+
+    public static function labelForValidationStatus(ValidationStatus $status): string
+    {
+        return match ($status) {
+            ValidationStatus::NotRequested => __('Sin validación'),
+            ValidationStatus::Pending => __('Pendiente de validación'),
+            ValidationStatus::Confirmed => __('Validado'),
+            ValidationStatus::Rejected => __('Validación rechazada'),
         };
     }
 }

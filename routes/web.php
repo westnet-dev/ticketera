@@ -23,6 +23,7 @@ Route::middleware(['auth', 'role:client,admin'])->prefix('tickets')->group(funct
     Route::get('/create', [TicketController::class, 'create'])->name('ticket.create');
     Route::get('/finished', [TicketController::class, 'finished'])->name('ticket.finished');
     Route::get('/drafts', [TicketController::class, 'drafts'])->name('ticket.drafts');
+    Route::get('/pending-validation', [TicketController::class, 'pendingValidation'])->name('ticket.pending-validation');
 });
 
 /* TICKET DETAIL (shared across roles, authorized via TicketPolicy::view) */

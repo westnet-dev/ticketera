@@ -10,7 +10,7 @@ class TicketController extends Controller
 {
     public function index(): View
     {
-        return view('tickets.index');
+        return $this->listView('tickets.index');
     }
 
     public function create(): View
@@ -20,12 +20,17 @@ class TicketController extends Controller
 
     public function finished(): View
     {
-        return view('tickets.finished');
+        return $this->listView('tickets.finished');
     }
 
     public function drafts(): View
     {
-        return view('tickets.drafts');
+        return $this->listView('tickets.drafts');
+    }
+
+    public function pendingValidation(): View
+    {
+        return $this->listView('tickets.pending-validation');
     }
 
     public function show(Ticket $ticket): View
@@ -41,5 +46,18 @@ class TicketController extends Controller
         $ticket->loadMissing(['user', 'createdBy']);
 
         return view('tickets.show', ['ticket' => $ticket]);
+    }
+
+    /**
+     * Render one of the ticket list tabs, all of which share the filter bar.
+     */
+    private function listView(string $view): View
+    {
+        return view($view, [
+            'pendingValidationCount' => Ticket::query()
+                ->forUsers([auth()->id()])
+                ->pendingValidation()
+                ->count(),
+        ]);
     }
 }

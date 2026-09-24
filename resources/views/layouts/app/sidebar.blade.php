@@ -32,7 +32,7 @@
                         <flux:sidebar.item
                             icon="user"
                             :href="route('ticket.index')"
-                            :current="request()->routeIs('ticket.index', 'ticket.create', 'ticket.finished', 'ticket.drafts')"
+                            :current="request()->routeIs('ticket.index', 'ticket.create', 'ticket.finished', 'ticket.drafts', 'ticket.pending-validation')"
                             wire:navigate
                         >
                             {{ __('Mis tickets') }}
@@ -65,7 +65,7 @@
                         <flux:sidebar.item
                             icon="ticket"
                             :href="route('ticket.index')"
-                            :current="request()->routeIs('ticket.index')"
+                            :current="request()->routeIs('ticket.index', 'ticket.create', 'ticket.finished', 'ticket.drafts', 'ticket.pending-validation')"
                             wire:navigate
                         >
                             {{ __("Tickets") }}

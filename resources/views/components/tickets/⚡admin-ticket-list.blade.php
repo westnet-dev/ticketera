@@ -165,6 +165,7 @@ new class extends Component
                         {{ __('Impacto') }}
                     </flux:table.column>
                     <flux:table.column>{{ __('Estado') }}</flux:table.column>
+                    <flux:table.column>{{ __('Validación') }}</flux:table.column>
                     <flux:table.column sortable :sorted="$sortBy === 'created_at'" :direction="$sortDirection" wire:click="sort('created_at')">
                         {{ __('Creado') }}
                     </flux:table.column>
@@ -188,6 +189,23 @@ new class extends Component
                             <flux:badge size="sm" :color="$ticket->statusColor()">
                                 {{ $ticket->statusLabel() }}
                             </flux:badge>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            @if ($ticket->validationWasRequested())
+                                <div class="flex items-center gap-2">
+                                    <flux:badge size="sm" :color="$ticket->validationStatusColor()">
+                                        {{ $ticket->validationStatusLabel() }}
+                                    </flux:badge>
+                                    @if ($ticket->resolution_rating !== null)
+                                        <span class="flex items-center gap-0.5 text-yellow-500">
+                                            <flux:icon.star variant="solid" class="size-4" />
+                                            {{ $ticket->resolution_rating }}
+                                        </span>
+                                    @endif
+                                </div>
+                            @else
+                                —
+                            @endif
                         </flux:table.cell>
                         <flux:table.cell>{{ $ticket->created_at->diffForHumans() }}</flux:table.cell>
                         <flux:table.cell>

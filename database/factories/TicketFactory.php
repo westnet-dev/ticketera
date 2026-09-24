@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\TriageStatus;
+use App\Enums\ValidationStatus;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,8 +29,37 @@ class TicketFactory extends Factory
             'impact' => fake()->numberBetween(1, 10),
             'status' => fake()->randomElement(['open', 'in_progress', 'paused', 'resolved', 'cancelled']),
             'triage_status' => TriageStatus::Approved,
+            'validation_status' => ValidationStatus::NotRequested,
+            'resolution_rating' => null,
+            'validated_at' => null,
             'assigned_to' => null,
         ];
+    }
+
+    /**
+     * Indicate that the ticket was resolved and is waiting on its author's validation.
+     */
+    public function awaitingValidation(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => 'resolved',
+            'validation_status' => ValidationStatus::Pending,
+            'resolution_rating' => null,
+            'validated_at' => null,
+        ]);
+    }
+
+    /**
+     * Indicate that the ticket's author confirmed the resolution and rated it.
+     */
+    public function validated(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => 'resolved',
+            'validation_status' => ValidationStatus::Confirmed,
+            'resolution_rating' => fake()->numberBetween(1, 5),
+            'validated_at' => now(),
+        ]);
     }
 
     /**

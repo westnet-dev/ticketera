@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\TriageStatus;
+use App\Enums\ValidationStatus;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
 use App\Models\User;
@@ -67,6 +68,17 @@ class TicketPolicy
     public function reviseTriage(User $user, Ticket $ticket): bool
     {
         return $user->id === $ticket->user_id && $ticket->triage_status === TriageStatus::Rejected;
+    }
+
+    /**
+     * Determine whether the user can validate the ticket's resolution.
+     *
+     * Only the ticket's author validates: an admin who filed it on their behalf
+     * would otherwise be signing off on their own team's work.
+     */
+    public function validateResolution(User $user, Ticket $ticket): bool
+    {
+        return $user->id === $ticket->user_id && $ticket->validation_status === ValidationStatus::Pending;
     }
 
     /**

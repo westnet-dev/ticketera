@@ -39,7 +39,7 @@ new class extends Component
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
         $query = Ticket::query()
-            ->with('assignedTo')
+            ->with(['user', 'assignedTo'])
             ->where(function ($q) {
                 $q->where('user_id', auth()->id());
 
@@ -52,6 +52,8 @@ new class extends Component
             $query->finished();
         } elseif ($this->statusFilter === 'draft') {
             $query->draft();
+        } elseif ($this->statusFilter === 'pending_validation') {
+            $query->where('user_id', auth()->id())->pendingValidation();
         } else {
             $query->whereIn('status', ['open', 'in_progress', 'paused']);
         }
@@ -75,6 +77,8 @@ new class extends Component
                 <p class="text-center text-sm text-neutral-500">{{ __('No tienes tickets finalizados.') }}</p>
             @elseif ($statusFilter === 'draft')
                 <p class="text-center text-sm text-neutral-500">{{ __('No tienes borradores.') }}</p>
+            @elseif ($statusFilter === 'pending_validation')
+                <p class="text-center text-sm text-neutral-500">{{ __('No tenés tickets esperando tu validación.') }}</p>
             @else
                 <p class="text-center text-sm text-neutral-500">{{ __('No tienes ningún ticket.') }}</p>
                 <p class="text-center text-xs text-neutral-100">{{ __('Haz clic en "Nuevo ticket" para crear uno.') }}</p>
@@ -98,6 +102,7 @@ new class extends Component
                     </flux:table.column>
                     <flux:table.column>{{ __('Estado') }}</flux:table.column>
                     <flux:table.column>{{ __('Aprobación') }}</flux:table.column>
+                    <flux:table.column>{{ __('Validación') }}</flux:table.column>
                     @if (auth()->user()->isAdmin())
                         <flux:table.column>{{ __('Asignado a') }}</flux:table.column>
                     @endif
@@ -128,6 +133,15 @@ new class extends Component
                             <flux:badge size="sm" :color="$ticket->triageStatusColor()">
                                 {{ $ticket->triageStatusLabel() }}
                             </flux:badge>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            @if ($ticket->validationWasRequested())
+                                <flux:badge size="sm" :color="$ticket->validationStatusColor()">
+                                    {{ $ticket->validationStatusLabel() }}
+                                </flux:badge>
+                            @else
+                                —
+                            @endif
                         </flux:table.cell>
                         @if (auth()->user()->isAdmin())
                             <flux:table.cell>{{ $ticket->assignedTo?->name ?? __('Sin asignar') }}</flux:table.cell>

@@ -13,7 +13,7 @@ class TicketObserver
      *
      * @var array<int, string>
      */
-    private const WATCHED_FIELDS = ['status', 'triage_status', 'assigned_to'];
+    private const WATCHED_FIELDS = ['status', 'triage_status', 'validation_status', 'assigned_to'];
 
     /**
      * Handle the Ticket "updated" event.

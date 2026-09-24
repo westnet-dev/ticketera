@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ValidationStatus;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -17,7 +18,37 @@ new class extends Component
             return;
         }
 
-        DB::transaction(fn () => $this->ticket->update(['status' => $status]));
+        if ($status === $this->ticket->status) {
+            return;
+        }
+
+        DB::transaction(fn () => $this->ticket->update([
+            'status' => $status,
+            ...$this->validationAttributesFor($status),
+        ]));
+    }
+
+    /**
+     * Resolving a ticket asks its author to validate the outcome; taking it back
+     * out of `resolved` before they answer withdraws that request.
+     *
+     * @return array<string, mixed>
+     */
+    private function validationAttributesFor(string $status): array
+    {
+        if ($status === 'resolved') {
+            return [
+                'validation_status' => ValidationStatus::Pending,
+                'resolution_rating' => null,
+                'validated_at' => null,
+            ];
+        }
+
+        if ($this->ticket->status === 'resolved' && $this->ticket->awaitsValidation()) {
+            return ['validation_status' => ValidationStatus::NotRequested];
+        }
+
+        return [];
     }
 };
 ?>
