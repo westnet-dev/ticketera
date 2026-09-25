@@ -262,15 +262,15 @@ new class extends Component
 };
 ?>
 
-<div class="max-w-6xl mx-auto rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
+<div class="max-w-6xl mx-auto w-full rounded-xl border border-neutral-200 p-4 sm:p-6 dark:border-neutral-700">
     @if (session('message'))
         <div class="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400">
             {{ session('message') }}
         </div>
     @endif
 
-    <form wire:submit.prevent="{{ $draft ? 'submit' : 'save' }}" class="gap-5 grid md:grid-cols-3">
-        <div class="flex flex-col gap-5 col-span-3">
+    <form wire:submit.prevent="{{ $draft ? 'submit' : 'save' }}" class="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div class="flex flex-col gap-5 md:col-span-3">
             @if (auth()->user()->isAdmin() && ! $draft)
                 <flux:field>
                     <flux:label>{{ __('Autor') }}</flux:label>
@@ -334,14 +334,14 @@ new class extends Component
             <flux:error name="urgency" />
         </flux:field>
 
-            <flux:field>
-                <flux:label>Impacto (1-10)</flux:label>
-                <flux:description>Indica que tanto afecta el caso a los clientes o negocio.</flux:description>
-                <flux:input wire:model="impact" type="number" min="1" max="10" />
-                <flux:error name="impact" />
-            </flux:field>
+        <flux:field>
+            <flux:label>Impacto (1-10)</flux:label>
+            <flux:description>Indica que tanto afecta el caso a los clientes o negocio.</flux:description>
+            <flux:input wire:model="impact" type="number" min="1" max="10" />
+            <flux:error name="impact" />
+        </flux:field>
 
-        <div class="col-start-2 flex items-center gap-2">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end md:col-span-3">
             @if ($draft)
                 <flux:button type="button" variant="ghost" wire:click="deleteDraft" wire:confirm="{{ __('¿Eliminar este borrador?') }}">
                     {{ __('Eliminar borrador') }}

@@ -3,7 +3,8 @@
     'pendingValidationCount' => 0,
 ])
 
-<div class="flex items-center justify-between">
+<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="overflow-x-auto">
     <flux:button.group>
         <flux:button
             :variant="$active === 'open' ? 'primary' : 'filled'"
@@ -36,12 +37,14 @@
             {{ __('Borradores') }}
         </flux:button>
     </flux:button.group>
+    </div>
 
     <flux:button
         href="{{ route('ticket.create') }}"
         wire:navigate
         variant="primary"
         icon="plus"
+        class="w-full sm:w-auto"
     >
         {{ __('Nuevo ticket') }}
     </flux:button>

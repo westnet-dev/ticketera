@@ -94,7 +94,7 @@ new class extends Component
 ?>
 
 <div>
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <flux:heading size="lg">{{ __('Áreas') }}</flux:heading>
 
         <flux:modal.trigger name="create-area">
@@ -127,7 +127,7 @@ new class extends Component
                         @endif
                     </flux:table.cell>
                     <flux:table.cell>{{ $area->users_count }}</flux:table.cell>
-                    <flux:table.cell class="flex items-center gap-2">
+                    <flux:table.cell class="flex flex-wrap items-center gap-2">
                         @if ($editingAreaId !== $area->id)
                             <flux:button size="sm" variant="ghost" wire:click="startEditing({{ $area->id }})">
                                 {{ __('Renombrar') }}
@@ -160,7 +160,7 @@ new class extends Component
             <flux:table.columns>
                 <flux:table.row>
                     <flux:table.column>{{ __('Nombre') }}</flux:table.column>
-                    <flux:table.column>{{ __('Email') }}</flux:table.column>
+                    <flux:table.column class="hidden lg:table-cell">{{ __('Email') }}</flux:table.column>
                     <flux:table.column>{{ __('Asignar área') }}</flux:table.column>
                 </flux:table.row>
             </flux:table.columns>
@@ -168,7 +168,7 @@ new class extends Component
                 @foreach ($unassignedUsers as $user)
                     <flux:table.row :key="$user->id">
                         <flux:table.cell>{{ $user->name }}</flux:table.cell>
-                        <flux:table.cell>{{ $user->email }}</flux:table.cell>
+                        <flux:table.cell class="hidden lg:table-cell">{{ $user->email }}</flux:table.cell>
                         <flux:table.cell>
                             <flux:select size="sm" wire:change="assignArea({{ $user->id }}, $event.target.value)">
                                 <flux:select.option value="">{{ __('Elegir un área') }}</flux:select.option>

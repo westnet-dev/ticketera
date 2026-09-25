@@ -33,10 +33,10 @@ new class extends Component
 ?>
 
 <div class="flex flex-1 flex-col gap-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700" wire:poll.5s>
-    <div class="flex flex-col gap-3 overflow-y-auto" style="max-height: 33rem;">
+    <div class="flex max-h-[60vh] flex-col gap-3 overflow-y-auto lg:max-h-[33rem]">
         @forelse ($messages as $message)
             <div @class([
-                'max-w-[75%] rounded-lg px-3 py-2 text-sm',
+                'max-w-[85%] rounded-lg px-3 py-2 text-sm wrap-break-word sm:max-w-[75%]',
                 'self-end bg-blue-600 text-white' => $message->user_id === auth()->id(),
                 'self-start bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100' => $message->user_id !== auth()->id(),
             ])>

@@ -161,7 +161,12 @@ class Ticket extends Model
 
     public function statusColor(): string
     {
-        return match ($this->status) {
+        return static::colorForStatus($this->status);
+    }
+
+    public static function colorForStatus(string $status): string
+    {
+        return match ($status) {
             'draft' => 'zinc',
             'open' => 'green',
             'in_progress' => 'yellow',

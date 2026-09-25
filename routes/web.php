@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AreaController as AdminAreaController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\TriageController as AdminTriageController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\DocumentationController;
 use App\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,7 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
+    Route::get('documentation', [DocumentationController::class, 'index'])->name('documentation.index');
 });
 
 /* SOLICITANTES DE TICKETS (cliente o admin haciendo un pedido propio) */

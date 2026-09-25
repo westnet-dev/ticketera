@@ -72,6 +72,17 @@
                         </flux:sidebar.item>
                     @endif
                 </flux:sidebar.group>
+
+                <flux:sidebar.group :heading="__('Ayuda')" class="grid">
+                    <flux:sidebar.item
+                        icon="book-open"
+                        :href="route('documentation.index')"
+                        :current="request()->routeIs('documentation.index')"
+                        wire:navigate
+                    >
+                        {{ __('Documentación') }}
+                    </flux:sidebar.item>
+                </flux:sidebar.group>
             </flux:sidebar.nav>
 
             <flux:spacer />

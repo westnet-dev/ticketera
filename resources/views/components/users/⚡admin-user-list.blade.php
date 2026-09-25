@@ -115,7 +115,7 @@ new class extends Component
 ?>
 
 <div>
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <flux:heading size="lg">{{ __('Usuarios') }}</flux:heading>
 
         <flux:modal.trigger name="create-user">
@@ -129,9 +129,9 @@ new class extends Component
         <flux:table.columns>
             <flux:table.row>
                 <flux:table.column>{{ __('Nombre') }}</flux:table.column>
-                <flux:table.column>{{ __('Email') }}</flux:table.column>
+                <flux:table.column class="hidden lg:table-cell">{{ __('Email') }}</flux:table.column>
                 <flux:table.column>{{ __('Rol') }}</flux:table.column>
-                <flux:table.column>{{ __('Área') }}</flux:table.column>
+                <flux:table.column class="hidden lg:table-cell">{{ __('Área') }}</flux:table.column>
                 <flux:table.column>{{ __('Acciones') }}</flux:table.column>
             </flux:table.row>
         </flux:table.columns>
@@ -143,7 +143,7 @@ new class extends Component
                 @endphp
                 <flux:table.row :key="$user->id">
                     <flux:table.cell>{{ $user->name }}</flux:table.cell>
-                    <flux:table.cell>{{ $user->email }}</flux:table.cell>
+                    <flux:table.cell class="hidden lg:table-cell">{{ $user->email }}</flux:table.cell>
                     <flux:table.cell>
                         <flux:select size="sm" :disabled="$isProtected" wire:change="updateRole({{ $user->id }}, $event.target.value)">
                             @foreach ($roles as $roleOption)
@@ -153,7 +153,7 @@ new class extends Component
                             @endforeach
                         </flux:select>
                     </flux:table.cell>
-                    <flux:table.cell>
+                    <flux:table.cell class="hidden lg:table-cell">
                         <flux:select size="sm" wire:change="updateArea({{ $user->id }}, $event.target.value)">
                             <flux:select.option value="" :selected="is_null($user->area_id)">
                                 {{ __('Sin área') }}
@@ -165,10 +165,10 @@ new class extends Component
                             @endforeach
                         </flux:select>
                     </flux:table.cell>
-                    <flux:table.cell class="flex items-center gap-2">
+                    <flux:table.cell class="flex flex-wrap items-center gap-2">
                         <flux:button
                             size="sm"
-                            variant="ghost"
+                            variant="outline"
                             wire:click="resetPassword({{ $user->id }})"
                             wire:confirm="{{ __('¿Enviar link de reseteo de contraseña a :email?', ['email' => $user->email]) }}"
                         >

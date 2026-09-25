@@ -81,12 +81,12 @@ new class extends Component
             <flux:table.columns>
                 <flux:table.row>
                     <flux:table.column>{{ __('ID') }}</flux:table.column>
-                    <flux:table.column>{{ __('Cliente') }}</flux:table.column>
+                    <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
                     <flux:table.column>{{ __('Título') }}</flux:table.column>
                     <flux:table.column>{{ __('Prioridad') }}</flux:table.column>
-                    <flux:table.column>{{ __('Urgencia') }}</flux:table.column>
-                    <flux:table.column>{{ __('Impacto') }}</flux:table.column>
-                    <flux:table.column>{{ __('Creado') }}</flux:table.column>
+                    <flux:table.column class="hidden lg:table-cell">{{ __('Urgencia') }}</flux:table.column>
+                    <flux:table.column class="hidden lg:table-cell">{{ __('Impacto') }}</flux:table.column>
+                    <flux:table.column class="hidden lg:table-cell">{{ __('Creado') }}</flux:table.column>
                     <flux:table.column>{{ __('Acciones') }}</flux:table.column>
                 </flux:table.row>
             </flux:table.columns>
@@ -94,19 +94,19 @@ new class extends Component
                 @foreach ($tickets as $ticket)
                     <flux:table.row :key="$ticket->id">
                         <flux:table.cell>{{ $ticket->id }}</flux:table.cell>
-                        <flux:table.cell>{{ $ticket->user->name }}</flux:table.cell>
-                        <flux:table.cell>
-                            <a href="{{ route('ticket.show', $ticket) }}" wire:navigate class="hover:underline">
+                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->user->name }}</flux:table.cell>
+                        <flux:table.cell class="whitespace-normal">
+                            <a href="{{ route('ticket.show', $ticket) }}" wire:navigate class="block min-w-40 wrap-break-word hover:underline">
                                 {{ $ticket->title }}
                             </a>
                         </flux:table.cell>
                         <flux:table.cell>{{ $ticket->priority }}</flux:table.cell>
-                        <flux:table.cell>{{ $ticket->urgency }}</flux:table.cell>
-                        <flux:table.cell>{{ $ticket->impact }}</flux:table.cell>
-                        <flux:table.cell>{{ $ticket->created_at->diffForHumans() }}</flux:table.cell>
-                        <flux:table.cell class="flex items-center gap-2">
+                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->urgency }}</flux:table.cell>
+                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->impact }}</flux:table.cell>
+                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->created_at->diffForHumans() }}</flux:table.cell>
+                        <flux:table.cell class="flex flex-wrap items-center gap-2">
                             @if ($rejectingTicketId === $ticket->id)
-                                <form wire:submit="reject" class="flex items-center gap-2">
+                                <form wire:submit="reject" class="flex flex-wrap items-center gap-2">
                                     <flux:input size="sm" wire:model="rejectionReason" placeholder="{{ __('Motivo del rechazo') }}" />
                                     <flux:button size="sm" variant="danger" type="submit">{{ __('Confirmar rechazo') }}</flux:button>
                                     <flux:button size="sm" variant="ghost" wire:click="cancelRejecting">{{ __('Cancelar') }}</flux:button>
