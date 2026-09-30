@@ -262,7 +262,7 @@ new class extends Component
 };
 ?>
 
-<div class="max-w-6xl mx-auto w-full rounded-xl border border-neutral-200 p-4 sm:p-6 dark:border-neutral-700">
+<div class="w-full rounded-xl border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-700 dark:bg-neutral-900">
     @if (session('message'))
         <div class="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400">
             {{ session('message') }}

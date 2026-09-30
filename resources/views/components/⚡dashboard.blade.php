@@ -50,177 +50,127 @@ new class extends Component
 
 <div class="flex flex-col gap-6">
     @if ($isAdmin)
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <x-stat-card :label="__('Sin asignar')" :value="$unassignedCount" icon="user-minus" icon-class="text-orange-500" :hint="__('Aprobados y sin responsable')" />
+            <x-stat-card :label="__('Pendientes de aprobación')" :value="$pendingTriageCount" icon="inbox-arrow-down" icon-class="text-blue-500" :hint="__('Esperan triage')" />
+            <x-stat-card :label="__('Pendientes de validación')" :value="$pendingValidationCount" icon="exclamation-triangle" icon-class="text-amber-500" :hint="__('Esperan confirmación del cliente')" />
+            <x-stat-card :label="__('Calificación promedio')" :value="$avgRating" icon="star" icon-class="text-yellow-500" :hint="__('Sobre 5 estrellas')" />
+        </div>
+
+        @php
+            $statusTotal = $ticketsByStatus->sum();
+        @endphp
+
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Tickets por estado') }}</flux:heading>
-                <dl class="mt-3 flex flex-col gap-2">
-                    @foreach (['draft' => __('Borrador'), 'open' => __('Abierto'), 'in_progress' => __('En Progreso'), 'paused' => __('Pausado'), 'resolved' => __('Resuelto'), 'cancelled' => __('Cancelado')] as $status => $label)
-                        <div class="flex items-center justify-between text-sm">
-                            <dt class="text-neutral-500 dark:text-neutral-400">{{ $label }}</dt>
-                            <dd class="font-semibold">{{ $ticketsByStatus[$status] ?? 0 }}</dd>
-                        </div>
+            <x-panel :heading="__('Tickets por estado')" class="sm:col-span-2 lg:col-span-1">
+                <dl class="flex flex-col gap-3 p-4">
+                    @foreach (\App\Models\Ticket::STATUSES as $status)
+                        <x-meter :value="$ticketsByStatus[$status] ?? 0" :max="$statusTotal">
+                            <x-slot:label>
+                                <flux:badge size="sm" :color="\App\Models\Ticket::colorForStatus($status)">
+                                    {{ \App\Models\Ticket::labelForStatus($status) }}
+                                </flux:badge>
+                            </x-slot:label>
+                        </x-meter>
                     @endforeach
                 </dl>
-            </div>
+            </x-panel>
 
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Promedio de prioridad, urgencia e impacto') }}</flux:heading>
-                <dl class="mt-3 flex flex-col gap-2">
-                    <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Prioridad') }}</dt>
-                        <dd class="font-semibold">{{ $avgPriority }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Urgencia') }}</dt>
-                        <dd class="font-semibold">{{ $avgUrgency }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Impacto') }}</dt>
-                        <dd class="font-semibold">{{ $avgImpact }}</dd>
-                    </div>
+            <x-panel :heading="__('Promedio de prioridad, urgencia e impacto')">
+                <dl class="flex flex-col gap-3 p-4">
+                    <x-meter :label="__('Prioridad')" :value="$avgPriority" :max="10" suffix="/ 10" />
+                    <x-meter :label="__('Urgencia')" :value="$avgUrgency" :max="10" suffix="/ 10" />
+                    <x-meter :label="__('Impacto')" :value="$avgImpact" :max="10" suffix="/ 10" />
                 </dl>
-            </div>
+            </x-panel>
 
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Sin asignar') }}</flux:heading>
-                <p class="mt-3 text-2xl font-semibold">{{ $unassignedCount }}</p>
-            </div>
-
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Pendientes de aprobación') }}</flux:heading>
-                <p class="mt-3 text-2xl font-semibold">{{ $pendingTriageCount }}</p>
-            </div>
-
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Pendientes de validación') }}</flux:heading>
-                <p class="mt-3 text-2xl font-semibold">{{ $pendingValidationCount }}</p>
-            </div>
-
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Calificación promedio') }}</flux:heading>
-                <p class="mt-3 flex items-center gap-2 text-2xl font-semibold">
-                    <flux:icon.star variant="solid" class="size-6 text-yellow-500" />
-                    {{ $avgRating }}
-                </p>
-            </div>
-
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Usuarios') }}</flux:heading>
-                <dl class="mt-3 flex flex-col gap-2">
+            <x-panel :heading="__('Usuarios')">
+                <dl class="flex flex-col gap-3 p-4">
                     <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Admins') }}</dt>
+                        <dt class="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
+                            <flux:icon.shield-check variant="mini" class="text-neutral-400" />
+                            {{ __('Admins') }}
+                        </dt>
                         <dd class="font-semibold">{{ $adminCount }}</dd>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Clientes') }}</dt>
+                        <dt class="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
+                            <flux:icon.user-group variant="mini" class="text-neutral-400" />
+                            {{ __('Clientes') }}
+                        </dt>
                         <dd class="font-semibold">{{ $clientCount }}</dd>
                     </div>
                 </dl>
-            </div>
+            </x-panel>
         </div>
     @else
-        <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border-dashed border border-cyan-500/50 bg-cyan-500/10 p-4">
-            <div>
-                <flux:heading size="sm">
-                    {{ __('Querés saber cómo funciona la plataforma?') }}
-                </flux:heading>
-                <flux:subheading>
-                    {{ __('Ingresa al siguiente enlace para ver toda la información.') }}
-                </flux:subheading>
-            </div>
-
-            <flux:button
-                size="sm"
-                variant="primary"
-                href="{{ route('documentation.index') }}"
-                wire:navigate
-            >
-                {{ __('Ver documentación') }}
-            </flux:button>
-        </div>
-
         @if ($pendingValidationCount > 0)
-            <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-yellow-500/50 bg-yellow-500/10 p-4">
-                <div>
-                    <flux:heading size="sm">
-                        {{ trans_choice('Tenés :count ticket esperando tu validación|Tenés :count tickets esperando tu validación', $pendingValidationCount, ['count' => $pendingValidationCount]) }}
-                    </flux:heading>
-                    <flux:subheading>
-                        {{ __('Entrá a cada ticket para confirmar si el pedido quedó resuelto y calificar la solución.') }}
-                    </flux:subheading>
-                </div>
-
-                <flux:button
-                    size="sm"
-                    variant="primary"
-                    href="{{ route('ticket.pending-validation') }}"
-                    wire:navigate
-                >
-                    {{ __('Ver pendientes') }}
-                </flux:button>
-            </div>
+            <flux:callout icon="check-badge" variant="warning">
+                <flux:callout.heading>
+                    {{ trans_choice('Tenés :count ticket esperando tu validación|Tenés :count tickets esperando tu validación', $pendingValidationCount, ['count' => $pendingValidationCount]) }}
+                </flux:callout.heading>
+                <flux:callout.text>
+                    {{ __('Entrá a cada ticket para confirmar si el pedido quedó resuelto y calificar la solución.') }}
+                </flux:callout.text>
+                <x-slot name="actions">
+                    <flux:button size="sm" href="{{ route('ticket.pending-validation') }}" wire:navigate>
+                        {{ __('Ver pendientes') }}
+                    </flux:button>
+                </x-slot>
+            </flux:callout>
         @endif
 
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Mis tickets abiertos') }}</flux:heading>
-                <div class="flex h-full items-center justify-center">
-                    <p class="text-4xl sm:text-6xl">{{ $openCount }}</p>
-                </div>
-            </div>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <x-stat-card :label="__('Mis tickets abiertos')" :value="$openCount" icon="clock" icon-class="text-green-500" />
+            <x-stat-card :label="__('Mis tickets finalizados')" :value="$finishedCount" icon="check-circle" icon-class="text-emerald-500" />
+            <x-stat-card :label="__('Pendientes de aprobación')" :value="$pendingTriageCount" icon="inbox-arrow-down" icon-class="text-blue-500" />
+            <x-stat-card :label="__('Por validar')" :value="$pendingValidationCount" icon="exclamation-triangle" icon-class="text-amber-500" />
+        </div>
 
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Mis tickets finalizados') }}</flux:heading>
-                <div class="flex h-full items-center justify-center">
-                    <p class="text-4xl sm:text-6xl">{{ $finishedCount }}</p>
-                </div>
-            </div>
+        <div class="grid gap-4 lg:grid-cols-3">
+            <x-panel :heading="__('Mis tickets recientes')" class="lg:col-span-2">
+                <x-slot:actions>
+                    <flux:button size="sm" variant="ghost" href="{{ route('ticket.index') }}" wire:navigate icon-trailing="arrow-right">
+                        {{ __('Ver todos') }}
+                    </flux:button>
+                </x-slot:actions>
 
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Mis tickets pendientes de aprobación') }}</flux:heading>
-                <div class="flex h-full items-center justify-center">
-                    <p class="text-4xl sm:text-6xl">{{ $pendingTriageCount }}</p>
-                </div>
-            </div>
+                @if ($recentTickets->isEmpty())
+                    <p class="p-4 text-sm text-neutral-500 dark:text-neutral-400">{{ __('Todavía no creaste ningún ticket.') }}</p>
+                @else
+                    <ul class="divide-y divide-neutral-200 dark:divide-neutral-700">
+                        @foreach ($recentTickets as $ticket)
+                            <li class="flex items-center justify-between gap-3 px-4 py-3">
+                                <x-tickets.subject-cell :ticket="$ticket" class="min-w-0" />
+                                <div class="flex shrink-0 items-center gap-3">
+                                    <x-tickets.priority-indicator :ticket="$ticket" class="hidden sm:inline-flex" />
+                                    <flux:badge size="sm" :color="$ticket->statusColor()">
+                                        {{ $ticket->statusLabel() }}
+                                    </flux:badge>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </x-panel>
 
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                <flux:heading size="sm">{{ __('Mi promedio de prioridad, urgencia e impacto') }}</flux:heading>
-                <dl class="mt-4 flex flex-col gap-2">
-                    <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Prioridad') }}</dt>
-                        <dd>{{ $avgPriority }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Urgencia') }}</dt>
-                        <dd>{{ $avgUrgency }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <dt class="text-neutral-500 dark:text-neutral-400">{{ __('Impacto') }}</dt>
-                        <dd>{{ $avgImpact }}</dd>
-                    </div>
+            <x-panel :heading="__('Mi promedio de prioridad, urgencia e impacto')">
+                <dl class="flex flex-col gap-3 p-4">
+                    <x-meter :label="__('Prioridad')" :value="$avgPriority" :max="10" suffix="/ 10" />
+                    <x-meter :label="__('Urgencia')" :value="$avgUrgency" :max="10" suffix="/ 10" />
+                    <x-meter :label="__('Impacto')" :value="$avgImpact" :max="10" suffix="/ 10" />
                 </dl>
-            </div>
+            </x-panel>
         </div>
 
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-            <flux:heading size="sm">{{ __('Mis tickets recientes') }}</flux:heading>
-
-            @if ($recentTickets->isEmpty())
-                <p class="mt-3 text-sm text-neutral-500 dark:text-neutral-400">{{ __('Todavía no creaste ningún ticket.') }}</p>
-            @else
-                <ul class="mt-3 flex flex-col gap-2">
-                    @foreach ($recentTickets as $ticket)
-                        <li class="flex items-center justify-between gap-2 text-sm">
-                            <a href="{{ route('ticket.show', $ticket) }}" wire:navigate class="min-w-0 truncate font-thin hover:underline">
-                                {{ $ticket->title }}
-                            </a>
-                            <flux:badge size="sm" :color="$ticket->statusColor()" class="shrink-0">
-                                {{ $ticket->statusLabel() }}
-                            </flux:badge>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
-        </div>
+        <flux:callout icon="book-open" color="zinc">
+            <flux:callout.heading>{{ __('¿Querés saber cómo funciona la plataforma?') }}</flux:callout.heading>
+            <flux:callout.text>{{ __('Ingresá a la documentación para ver toda la información.') }}</flux:callout.text>
+            <x-slot name="actions">
+                <flux:button size="sm" href="{{ route('documentation.index') }}" wire:navigate>
+                    {{ __('Ver documentación') }}
+                </flux:button>
+            </x-slot>
+        </flux:callout>
     @endif
 </div>

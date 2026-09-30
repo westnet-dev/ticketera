@@ -1,51 +1,19 @@
 @props([
     'active',
-    'pendingValidationCount' => 0,
+    'ticketCounts',
 ])
 
-<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div class="overflow-x-auto">
-    <flux:button.group>
-        <flux:button
-            :variant="$active === 'open' ? 'primary' : 'filled'"
-            href="{{ route('ticket.index') }}"
-            wire:navigate
-        >
-            {{ __('En curso') }}
-        </flux:button>
-        <flux:button
-            :variant="$active === 'pending_validation' ? 'primary' : 'filled'"
-            href="{{ route('ticket.pending-validation') }}"
-            wire:navigate
-        >
-            {{ $pendingValidationCount > 0
-                ? __('Por validar (:count)', ['count' => $pendingValidationCount])
-                : __('Por validar') }}
-        </flux:button>
-        <flux:button
-            :variant="$active === 'finished' ? 'primary' : 'filled'"
-            href="{{ route('ticket.finished') }}"
-            wire:navigate
-        >
-            {{ __('Finalizados') }}
-        </flux:button>
-        <flux:button
-            :variant="$active === 'draft' ? 'primary' : 'filled'"
-            href="{{ route('ticket.drafts') }}"
-            wire:navigate
-        >
-            {{ __('Borradores') }}
-        </flux:button>
-    </flux:button.group>
-    </div>
-
-    <flux:button
-        href="{{ route('ticket.create') }}"
-        wire:navigate
-        variant="primary"
-        icon="plus"
-        class="w-full sm:w-auto"
-    >
-        {{ __('Nuevo ticket') }}
-    </flux:button>
-</div>
+<x-tabs aria-label="{{ __('Filtrar tickets') }}">
+    <x-tab :href="route('ticket.index')" wire:navigate :active="$active === 'open'" :count="$ticketCounts['ongoing']">
+        {{ __('En curso') }}
+    </x-tab>
+    <x-tab :href="route('ticket.pending-validation')" wire:navigate :active="$active === 'pending_validation'" :count="$ticketCounts['pending_validation']">
+        {{ __('Por validar') }}
+    </x-tab>
+    <x-tab :href="route('ticket.finished')" wire:navigate :active="$active === 'finished'" :count="$ticketCounts['finished']">
+        {{ __('Finalizados') }}
+    </x-tab>
+    <x-tab :href="route('ticket.drafts')" wire:navigate :active="$active === 'draft'" :count="$ticketCounts['drafts']">
+        {{ __('Borradores') }}
+    </x-tab>
+</x-tabs>

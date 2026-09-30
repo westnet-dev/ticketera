@@ -114,81 +114,83 @@ new class extends Component
 };
 ?>
 
-<div>
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <flux:heading size="lg">{{ __('Usuarios') }}</flux:heading>
+<div class="flex flex-col gap-6">
+    <x-page-header :title="__('Usuarios')" :subtitle="trans_choice(':count usuario registrado|:count usuarios registrados', $users->total())">
+        <x-slot:actions>
+            <flux:modal.trigger name="create-user">
+                <flux:button variant="primary" icon="plus" class="w-full sm:w-auto">
+                    {{ __('Nuevo usuario') }}
+                </flux:button>
+            </flux:modal.trigger>
+        </x-slot:actions>
+    </x-page-header>
 
-        <flux:modal.trigger name="create-user">
-            <flux:button variant="primary" icon="plus">
-                {{ __('Nuevo usuario') }}
-            </flux:button>
-        </flux:modal.trigger>
-    </div>
-
-    <flux:table :paginate="$users">
-        <flux:table.columns>
-            <flux:table.row>
-                <flux:table.column>{{ __('Nombre') }}</flux:table.column>
-                <flux:table.column class="hidden lg:table-cell">{{ __('Email') }}</flux:table.column>
-                <flux:table.column>{{ __('Rol') }}</flux:table.column>
-                <flux:table.column class="hidden lg:table-cell">{{ __('Área') }}</flux:table.column>
-                <flux:table.column>{{ __('Acciones') }}</flux:table.column>
-            </flux:table.row>
-        </flux:table.columns>
-        <flux:table.rows>
-            @foreach ($users as $user)
-                @php
-                    $isProtected = $user->id === auth()->id()
-                        || ($user->isAdmin() && $activeAdminCount <= 1);
-                @endphp
-                <flux:table.row :key="$user->id">
-                    <flux:table.cell>{{ $user->name }}</flux:table.cell>
-                    <flux:table.cell class="hidden lg:table-cell">{{ $user->email }}</flux:table.cell>
-                    <flux:table.cell>
-                        <flux:select size="sm" :disabled="$isProtected" wire:change="updateRole({{ $user->id }}, $event.target.value)">
-                            @foreach ($roles as $roleOption)
-                                <flux:select.option value="{{ $roleOption->value }}" :selected="$user->role === $roleOption">
-                                    {{ ucfirst($roleOption->value) }}
-                                </flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </flux:table.cell>
-                    <flux:table.cell class="hidden lg:table-cell">
-                        <flux:select size="sm" wire:change="updateArea({{ $user->id }}, $event.target.value)">
-                            <flux:select.option value="" :selected="is_null($user->area_id)">
-                                {{ __('Sin área') }}
-                            </flux:select.option>
-                            @foreach ($areas as $areaOption)
-                                <flux:select.option value="{{ $areaOption->id }}" :selected="$user->area_id === $areaOption->id">
-                                    {{ $areaOption->title }}
-                                </flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </flux:table.cell>
-                    <flux:table.cell class="flex flex-wrap items-center gap-2">
-                        <flux:button
-                            size="sm"
-                            variant="outline"
-                            wire:click="resetPassword({{ $user->id }})"
-                            wire:confirm="{{ __('¿Enviar link de reseteo de contraseña a :email?', ['email' => $user->email]) }}"
-                        >
-                            {{ __('Resetear contraseña') }}
-                        </flux:button>
-
-                        <flux:button
-                            size="sm"
-                            variant="danger"
-                            :disabled="$isProtected"
-                            wire:click="deleteUser({{ $user->id }})"
-                            wire:confirm="{{ __('¿Eliminar a :name? Esta acción no se puede deshacer.', ['name' => $user->name]) }}"
-                        >
-                            {{ __('Eliminar') }}
-                        </flux:button>
-                    </flux:table.cell>
+    <x-table-panel>
+        <flux:table :paginate="$users">
+            <flux:table.columns>
+                <flux:table.row>
+                    <flux:table.column>{{ __('Usuario') }}</flux:table.column>
+                    <flux:table.column>{{ __('Rol') }}</flux:table.column>
+                    <flux:table.column class="hidden lg:table-cell">{{ __('Área') }}</flux:table.column>
+                    <flux:table.column>{{ __('Acciones') }}</flux:table.column>
                 </flux:table.row>
-            @endforeach
-        </flux:table.rows>
-    </flux:table>
+            </flux:table.columns>
+            <flux:table.rows>
+                @foreach ($users as $user)
+                    @php
+                        $isProtected = $user->id === auth()->id()
+                            || ($user->isAdmin() && $activeAdminCount <= 1);
+                    @endphp
+                    <flux:table.row :key="$user->id">
+                        <flux:table.cell>
+                            <x-user-cell :user="$user" show-email />
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <flux:select size="sm" :disabled="$isProtected" wire:change="updateRole({{ $user->id }}, $event.target.value)">
+                                @foreach ($roles as $roleOption)
+                                    <flux:select.option value="{{ $roleOption->value }}" :selected="$user->role === $roleOption">
+                                        {{ ucfirst($roleOption->value) }}
+                                    </flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </flux:table.cell>
+                        <flux:table.cell class="hidden lg:table-cell">
+                            <flux:select size="sm" wire:change="updateArea({{ $user->id }}, $event.target.value)">
+                                <flux:select.option value="" :selected="is_null($user->area_id)">
+                                    {{ __('Sin área') }}
+                                </flux:select.option>
+                                @foreach ($areas as $areaOption)
+                                    <flux:select.option value="{{ $areaOption->id }}" :selected="$user->area_id === $areaOption->id">
+                                        {{ $areaOption->title }}
+                                    </flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        </flux:table.cell>
+                        <flux:table.cell class="flex flex-wrap items-center gap-2">
+                            <flux:button
+                                size="sm"
+                                variant="outline"
+                                wire:click="resetPassword({{ $user->id }})"
+                                wire:confirm="{{ __('¿Enviar link de reseteo de contraseña a :email?', ['email' => $user->email]) }}"
+                            >
+                                {{ __('Resetear contraseña') }}
+                            </flux:button>
+
+                            <flux:button
+                                size="sm"
+                                variant="danger"
+                                :disabled="$isProtected"
+                                wire:click="deleteUser({{ $user->id }})"
+                                wire:confirm="{{ __('¿Eliminar a :name? Esta acción no se puede deshacer.', ['name' => $user->name]) }}"
+                            >
+                                {{ __('Eliminar') }}
+                            </flux:button>
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforeach
+            </flux:table.rows>
+        </flux:table>
+    </x-table-panel>
 
     <flux:modal name="create-user" class="max-w-lg">
         <form wire:submit="createUser" class="space-y-6">

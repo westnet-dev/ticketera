@@ -30,12 +30,10 @@
 
 <x-layouts::app :title="__('Documentación')">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <div class="flex flex-col gap-2">
-            <flux:heading size="xl">{{ __('Guía de uso de la plataforma') }}</flux:heading>
-            <flux:subheading>
-                {{ __('Todo lo que necesitás saber para cargar pedidos, seguirlos y saber qué esperar en cada paso.') }}
-            </flux:subheading>
-        </div>
+        <x-page-header
+            :title="__('Guía de uso de la plataforma')"
+            :subtitle="__('Todo lo que necesitás saber para cargar pedidos, seguirlos y saber qué esperar en cada paso.')"
+        />
 
         <div class="grid gap-6 lg:grid-cols-4">
             <div class="flex flex-col gap-10 lg:col-span-3">
@@ -83,7 +81,7 @@
                         {{ __('Desde Tickets, tocá "Nuevo ticket". Estos son los campos del formulario:') }}
                     </flux:text>
 
-                    <dl class="flex flex-col gap-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                    <dl class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                         @foreach ([
                             [__('Título'), __('Una frase corta que resuma el pedido (mínimo 5 caracteres). Ej.: "No puedo exportar el reporte mensual".')],
                             [__('Descripción'), __('Explicá qué pasa, desde cuándo, qué esperabas que pasara y qué pasos seguiste (mínimo 10 caracteres). Cuanto más detalle, más rápido se resuelve.')],
@@ -106,7 +104,7 @@
                             [__('Urgencia'), __('Qué tan rápido necesitás que se resuelva.')],
                             [__('Impacto'), __('Cuánto afecta a los clientes o al negocio: a una persona, a un área entera, a toda la empresa.')],
                         ] as [$title, $body])
-                            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                            <div class="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                                 <flux:heading size="sm">{{ $title }}</flux:heading>
                                 <flux:text class="mt-1">{{ $body }}</flux:text>
                             </div>
@@ -197,7 +195,7 @@
                         {{ __('Cuando el equipo marca tu ticket como Resuelto, te toca confirmar el resultado. Lo vas a ver en la pestaña "Por validar" y como aviso en el propio ticket.') }}
                     </flux:text>
                     <div class="grid gap-3 md:grid-cols-2">
-                        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                        <div class="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                             <flux:heading size="sm" class="flex items-center gap-2">
                                 {{ __('Confirmar resolución') }}
                                 <span class="flex text-yellow-500">
@@ -208,7 +206,7 @@
                             </flux:heading>
                             <flux:text class="mt-1">{{ __('Calificás la solución de 1 a 5 estrellas y el ticket queda cerrado. Tu calificación ayuda al equipo a mejorar.') }}</flux:text>
                         </div>
-                        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                        <div class="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                             <flux:heading size="sm">{{ __('No se resolvió') }}</flux:heading>
                             <flux:text class="mt-1">{{ __('Contás qué quedó pendiente. Tu mensaje se publica en el chat y el ticket vuelve a En Progreso para que el equipo siga trabajando.') }}</flux:text>
                         </div>
@@ -251,7 +249,7 @@
                 <section id="mis-tickets" class="flex scroll-mt-6 flex-col gap-3">
                     <flux:heading size="lg">{{ $sections['mis-tickets'] }}</flux:heading>
                     <flux:text>{{ __('En la sección Tickets tus pedidos se organizan en pestañas:') }}</flux:text>
-                    <dl class="flex flex-col gap-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                    <dl class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                         @foreach ([
                             [__('En curso'), __('Tickets Abiertos, En Progreso o Pausados.')],
                             [__('Por validar'), __('Tickets resueltos que esperan tu confirmación. El número entre paréntesis indica cuántos tenés pendientes.')],
@@ -281,7 +279,7 @@
                 {{-- FAQ --}}
                 <section id="faq" class="flex scroll-mt-6 flex-col gap-3">
                     <flux:heading size="lg">{{ $sections['faq'] }}</flux:heading>
-                    <div class="flex flex-col divide-y divide-neutral-200 rounded-xl border border-neutral-200 dark:divide-neutral-700 dark:border-neutral-700">
+                    <div class="flex flex-col divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-900">
                         @foreach ([
                             [__('¿Puedo editar un ticket después de enviarlo?'), __('No directamente. Si falta información o cambió algo, escribilo en el chat del ticket. La única excepción es cuando el ticket es rechazado en la revisión inicial: ahí podés corregirlo y reenviarlo.')],
                             [__('¿Por qué no puedo crear un ticket nuevo?'), __('Probablemente se alcanzó el límite de tickets sin cerrar de tu área. Revisá la sección Límite de tickets; cuando se resuelva o cancele alguno vas a poder crear otro. Mientras tanto podés guardarlo como borrador.')],
@@ -321,7 +319,7 @@
                                 [__('Áreas'), __('Creá, renombrá o eliminá áreas y asigná un área a los usuarios que todavía no tienen. El límite de tickets se calcula por área.')],
                                 [__('Configuración del límite'), __('En Herramientas > Tickets definís el máximo de tickets sin cerrar por área (hoy: :max). Aplica por igual a todas las áreas.', ['max' => $maxOpenTickets])],
                             ] as [$title, $body])
-                                <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                                <div class="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                                     <flux:heading size="sm">{{ $title }}</flux:heading>
                                     <flux:text class="mt-1">{{ $body }}</flux:text>
                                 </div>
@@ -332,7 +330,7 @@
             </div>
 
             <nav class="lg:col-span-1" aria-label="{{ __('Índice') }}">
-                <div class="flex flex-col gap-1 rounded-xl border border-neutral-200 p-4 lg:sticky lg:top-6 dark:border-neutral-700">
+                <div class="flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-4 lg:sticky lg:top-6 dark:border-neutral-700 dark:bg-neutral-900">
                     <p class="mb-2 text-sm font-semibold">{{ __('En esta página') }}</p>
                     @foreach ($sections as $anchor => $label)
                         <a

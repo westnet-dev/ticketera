@@ -1,8 +1,10 @@
 <x-layouts::app :title="__('Draft tickets')">
-    <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <flux:heading size="lg">{{ __("Mis tickets") }}</flux:heading>
+    <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
+        <x-tickets.list-header :ticket-counts="$ticketCounts" />
 
-        <x-tickets.filter-tabs active="draft" :pending-validation-count="$pendingValidationCount" />
+        <x-tickets.summary-cards :ticket-counts="$ticketCounts" />
+
+        <x-tickets.filter-tabs active="draft" :ticket-counts="$ticketCounts" />
 
         <livewire:tickets.ticket-list status-filter="draft" />
     </div>

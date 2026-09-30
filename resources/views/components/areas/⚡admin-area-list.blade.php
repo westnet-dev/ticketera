@@ -93,96 +93,107 @@ new class extends Component
 };
 ?>
 
-<div>
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <flux:heading size="lg">{{ __('Áreas') }}</flux:heading>
+<div class="flex flex-col gap-6">
+    <x-page-header :title="__('Áreas')" :subtitle="__('Equipos en los que se agrupan los usuarios')">
+        <x-slot:actions>
+            <flux:modal.trigger name="create-area">
+                <flux:button variant="primary" icon="plus" class="w-full sm:w-auto">
+                    {{ __('Nueva área') }}
+                </flux:button>
+            </flux:modal.trigger>
+        </x-slot:actions>
+    </x-page-header>
 
-        <flux:modal.trigger name="create-area">
-            <flux:button variant="primary" icon="plus">
-                {{ __('Nueva área') }}
-            </flux:button>
-        </flux:modal.trigger>
-    </div>
-
-    <flux:table :paginate="$areas">
-        <flux:table.columns>
-            <flux:table.row>
-                <flux:table.column>{{ __('Título') }}</flux:table.column>
-                <flux:table.column>{{ __('Usuarios asignados') }}</flux:table.column>
-                <flux:table.column>{{ __('Acciones') }}</flux:table.column>
-            </flux:table.row>
-        </flux:table.columns>
-        <flux:table.rows>
-            @foreach ($areas as $area)
-                <flux:table.row :key="$area->id">
-                    <flux:table.cell>
-                        @if ($editingAreaId === $area->id)
-                            <form wire:submit="updateArea" class="flex items-center gap-2">
-                                <flux:input size="sm" wire:model="editingTitle" />
-                                <flux:button size="sm" type="submit">{{ __('Guardar') }}</flux:button>
-                                <flux:button size="sm" variant="ghost" wire:click="cancelEditing">{{ __('Cancelar') }}</flux:button>
-                            </form>
-                        @else
-                            {{ $area->title }}
-                        @endif
-                    </flux:table.cell>
-                    <flux:table.cell>{{ $area->users_count }}</flux:table.cell>
-                    <flux:table.cell class="flex flex-wrap items-center gap-2">
-                        @if ($editingAreaId !== $area->id)
-                            <flux:button size="sm" variant="ghost" wire:click="startEditing({{ $area->id }})">
-                                {{ __('Renombrar') }}
-                            </flux:button>
-                        @endif
-
-                        <flux:button
-                            size="sm"
-                            variant="danger"
-                            :disabled="$area->users_count > 0"
-                            wire:click="deleteArea({{ $area->id }})"
-                            wire:confirm="{{ __('¿Eliminar el área :title?', ['title' => $area->title]) }}"
-                        >
-                            {{ __('Eliminar') }}
-                        </flux:button>
-                    </flux:table.cell>
-                </flux:table.row>
-            @endforeach
-        </flux:table.rows>
-    </flux:table>
-
-    <div class="mt-8 flex items-center justify-between">
-        <flux:heading size="lg">{{ __('Usuarios sin área') }}</flux:heading>
-    </div>
-
-    @if ($unassignedUsers->isEmpty())
-        <flux:text class="mt-2">{{ __('Todos los usuarios tienen área asignada.') }}</flux:text>
-    @else
-        <flux:table>
+    <x-table-panel>
+        <flux:table :paginate="$areas">
             <flux:table.columns>
                 <flux:table.row>
-                    <flux:table.column>{{ __('Nombre') }}</flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell">{{ __('Email') }}</flux:table.column>
-                    <flux:table.column>{{ __('Asignar área') }}</flux:table.column>
+                    <flux:table.column>{{ __('Título') }}</flux:table.column>
+                    <flux:table.column>{{ __('Usuarios asignados') }}</flux:table.column>
+                    <flux:table.column>{{ __('Acciones') }}</flux:table.column>
                 </flux:table.row>
             </flux:table.columns>
             <flux:table.rows>
-                @foreach ($unassignedUsers as $user)
-                    <flux:table.row :key="$user->id">
-                        <flux:table.cell>{{ $user->name }}</flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $user->email }}</flux:table.cell>
+                @foreach ($areas as $area)
+                    <flux:table.row :key="$area->id">
                         <flux:table.cell>
-                            <flux:select size="sm" wire:change="assignArea({{ $user->id }}, $event.target.value)">
-                                <flux:select.option value="">{{ __('Elegir un área') }}</flux:select.option>
-                                @foreach ($allAreas as $areaOption)
-                                    <flux:select.option value="{{ $areaOption->id }}">
-                                        {{ $areaOption->title }}
-                                    </flux:select.option>
-                                @endforeach
-                            </flux:select>
+                            @if ($editingAreaId === $area->id)
+                                <form wire:submit="updateArea" class="flex items-center gap-2">
+                                    <flux:input size="sm" wire:model="editingTitle" />
+                                    <flux:button size="sm" type="submit">{{ __('Guardar') }}</flux:button>
+                                    <flux:button size="sm" variant="ghost" wire:click="cancelEditing">{{ __('Cancelar') }}</flux:button>
+                                </form>
+                            @else
+                                <span class="font-medium text-neutral-900 dark:text-white">{{ $area->title }}</span>
+                            @endif
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <flux:badge size="sm" icon="users">{{ $area->users_count }}</flux:badge>
+                        </flux:table.cell>
+                        <flux:table.cell class="flex flex-wrap items-center gap-2">
+                            @if ($editingAreaId !== $area->id)
+                                <flux:button size="sm" variant="ghost" wire:click="startEditing({{ $area->id }})">
+                                    {{ __('Renombrar') }}
+                                </flux:button>
+                            @endif
+
+                            <flux:button
+                                size="sm"
+                                variant="danger"
+                                :disabled="$area->users_count > 0"
+                                wire:click="deleteArea({{ $area->id }})"
+                                wire:confirm="{{ __('¿Eliminar el área :title?', ['title' => $area->title]) }}"
+                            >
+                                {{ __('Eliminar') }}
+                            </flux:button>
                         </flux:table.cell>
                     </flux:table.row>
                 @endforeach
             </flux:table.rows>
         </flux:table>
+    </x-table-panel>
+
+    <div>
+        <flux:heading size="lg">{{ __('Usuarios sin área') }}</flux:heading>
+        <flux:text class="mt-1">{{ __('Usuarios que todavía no pertenecen a ningún área.') }}</flux:text>
+    </div>
+
+    @if ($unassignedUsers->isEmpty())
+        <x-empty-state icon="check-circle" :message="__('Todos los usuarios tienen área asignada.')" />
+    @else
+        <x-table-panel>
+            <flux:table>
+                <flux:table.columns>
+                    <flux:table.row>
+                        <flux:table.column>{{ __('Usuario') }}</flux:table.column>
+                        <flux:table.column class="hidden lg:table-cell">{{ __('Rol') }}</flux:table.column>
+                        <flux:table.column>{{ __('Asignar área') }}</flux:table.column>
+                    </flux:table.row>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @foreach ($unassignedUsers as $user)
+                        <flux:table.row :key="$user->id">
+                            <flux:table.cell>
+                                <x-user-cell :user="$user" show-email />
+                            </flux:table.cell>
+                            <flux:table.cell class="hidden lg:table-cell">
+                                <flux:badge size="sm">{{ ucfirst($user->role->value) }}</flux:badge>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <flux:select size="sm" wire:change="assignArea({{ $user->id }}, $event.target.value)">
+                                    <flux:select.option value="">{{ __('Elegir un área') }}</flux:select.option>
+                                    @foreach ($allAreas as $areaOption)
+                                        <flux:select.option value="{{ $areaOption->id }}">
+                                            {{ $areaOption->title }}
+                                        </flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforeach
+                </flux:table.rows>
+            </flux:table>
+        </x-table-panel>
     @endif
 
     <flux:modal name="create-area" class="max-w-lg">

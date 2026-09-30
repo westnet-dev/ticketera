@@ -24,6 +24,7 @@ new class extends Component
             'triage_status' => __('Triage'),
             'validation_status' => __('Validación'),
             'assigned_to' => __('Asignación'),
+            'details' => __('Detalles editados'),
             default => $field,
         };
     }
@@ -39,6 +40,25 @@ new class extends Component
         };
     }
 
+    /**
+     * Human-readable list of the fields changed by a details edit.
+     */
+    public function editedFieldsLabel(?string $fields): string
+    {
+        return collect(explode(',', (string) $fields))
+            ->filter()
+            ->map(fn (string $field) => match ($field) {
+                'title' => __('Título'),
+                'description' => __('Descripción'),
+                'priority' => __('Prioridad'),
+                'urgency' => __('Urgencia'),
+                'impact' => __('Impacto'),
+                'images' => __('Imágenes'),
+                default => $field,
+            })
+            ->implode(', ');
+    }
+
     private function userLabel(?string $userId): string
     {
         if ($userId === null) {
@@ -51,15 +71,19 @@ new class extends Component
 ?>
 
 <div class="flex flex-col gap-3">
-    <p class="font-semibold">{{ __('Historial') }}</p>
+    <flux:heading size="sm">{{ __('Historial') }}</flux:heading>
 
     @forelse ($entries as $entry)
-        <div class="flex flex-col gap-1 border-l-2 border-neutral-400 pl-3 text-sm dark:border-neutral-500">
+        <div class="flex flex-col gap-1 border-l-2 border-neutral-200 pl-3 text-sm dark:border-neutral-500">
             <p>
                 <span class="font-medium">{{ $this->fieldLabel($entry->field) }}:</span>
-                <span>{{ $this->valueLabel($entry->field, $entry->from_value) }}</span>
-                <flux:icon.arrow-right class="h-3 w-3 inline" />
-                <span>{{ $this->valueLabel($entry->field, $entry->to_value) }}</span>
+                @if ($entry->field === 'details')
+                    <span>{{ $this->editedFieldsLabel($entry->to_value) }}</span>
+                @else
+                    <span>{{ $this->valueLabel($entry->field, $entry->from_value) }}</span>
+                    <flux:icon.arrow-right class="h-3 w-3 inline" />
+                    <span>{{ $this->valueLabel($entry->field, $entry->to_value) }}</span>
+                @endif
             </p>
             <p class="text-xs text-neutral-500 dark:text-neutral-400">
                 {{ $entry->changedBy?->name ?? __('Sistema') }} · {{ $entry->created_at->diffForHumans() }}

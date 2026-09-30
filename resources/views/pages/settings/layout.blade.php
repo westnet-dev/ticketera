@@ -18,14 +18,12 @@
         </flux:navlist>
     </div>
 
-    <flux:separator class="md:hidden" />
-
-    <div class="flex-1 self-stretch max-md:pt-6">
+    <x-panel class="w-full flex-1 self-stretch p-4 max-md:mt-6 sm:p-6">
         <flux:heading>{{ $heading ?? "" }}</flux:heading>
         <flux:subheading>{{ $subheading ?? "" }}</flux:subheading>
 
         <div class="mt-5 w-full max-w-lg">
             {{ $slot }}
         </div>
-    </div>
+    </x-panel>
 </div>

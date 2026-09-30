@@ -96,8 +96,23 @@ new class extends Component
             ->orderBy($sortBy, $sortDirection)
             ->paginate(10);
 
+        $baseQuery = Ticket::query()->approved()->where('status', '!=', 'draft');
+
+        $countsByStatus = (clone $baseQuery)
+            ->toBase()
+            ->select('status')
+            ->selectRaw('count(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
         return [
             'tickets' => $tickets,
+            'tabCounts' => [
+                'all' => (int) $countsByStatus->except(['resolved'])->sum(),
+                'unassigned' => (clone $baseQuery)->whereNotIn('status', ['resolved'])->unassigned()->count(),
+                'resolved' => (int) ($countsByStatus['resolved'] ?? 0),
+                'cancelled' => (int) ($countsByStatus['cancelled'] ?? 0),
+            ],
             'sortBy' => $sortBy,
             'sortDirection' => $sortDirection,
             'statusFilter' => $this->statusFilter,
@@ -112,119 +127,80 @@ new class extends Component
 ?>
 
 <div class="flex flex-col gap-4">
-    <div class="overflow-x-auto">
-    <flux:button.group>
-        <flux:button
-            size="sm"
-            :variant="$statusFilter === null && $assignedFilter === null ? 'primary' : 'filled'"
-            wire:click="filterByStatus(null); filterByAssigned(null)"
-        >
+    <x-tabs aria-label="{{ __('Filtrar tickets') }}">
+        <x-tab wire:click="filterByStatus(null); filterByAssigned(null)" :active="$statusFilter === null && $assignedFilter === null" :count="$tabCounts['all']">
             {{ __('Todos') }}
-        </flux:button>
-        <flux:button
-            size="sm"
-            :variant="$assignedFilter === 'unassigned' ? 'primary' : 'filled'"
-            wire:click="filterByAssigned('unassigned'); filterByStatus(null)"
-        >
+        </x-tab>
+        <x-tab wire:click="filterByAssigned('unassigned'); filterByStatus(null)" :active="$assignedFilter === 'unassigned'" :count="$tabCounts['unassigned']">
             {{ __('Sin Asignar') }}
-        </flux:button>
-        <flux:button
-            size="sm"
-            :variant="$statusFilter === 'resolved' ? 'primary' : 'filled'"
-            wire:click="filterByStatus('resolved'); filterByAssigned(null)"
-        >
+        </x-tab>
+        <x-tab wire:click="filterByStatus('resolved'); filterByAssigned(null)" :active="$statusFilter === 'resolved'" :count="$tabCounts['resolved']">
             {{ __('Resueltos') }}
-        </flux:button>
-        <flux:button
-            size="sm"
-            :variant="$statusFilter === 'cancelled' ? 'primary' : 'filled'"
-            wire:click="filterByStatus('cancelled'); filterByAssigned(null)"
-        >
+        </x-tab>
+        <x-tab wire:click="filterByStatus('cancelled'); filterByAssigned(null)" :active="$statusFilter === 'cancelled'" :count="$tabCounts['cancelled']">
             {{ __('Cancelados') }}
-        </flux:button>
-    </flux:button.group>
-    </div>
+        </x-tab>
+    </x-tabs>
 
     @if ($tickets->isEmpty())
-        <div class="flex flex-col items-center justify-center gap-2 rounded-lg border border-neutral-200 p-8 dark:border-neutral-700">
-            <x-heroicon-o-ticket class="mx-auto size-32 text-neutral-400 sm:size-48" />
-            <p class="text-center text-sm text-neutral-500">{{ __('No hay tickets.') }}</p>
-        </div>
+        <x-empty-state :message="__('No hay tickets.')" />
     @else
-        <flux:table :paginate="$tickets">
-            <flux:table.columns>
-                <flux:table.row>
-                    <flux:table.column>{{ __('ID') }}</flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
-                    <flux:table.column>{{ __('Título') }}</flux:table.column>
-                    <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
-                        {{ __('Prioridad') }}
-                    </flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'urgency'" :direction="$sortDirection" wire:click="sort('urgency')">
-                        {{ __('Urgencia') }}
-                    </flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'impact'" :direction="$sortDirection" wire:click="sort('impact')">
-                        {{ __('Impacto') }}
-                    </flux:table.column>
-                    <flux:table.column>{{ __('Estado') }}</flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell">{{ __('Validación') }}</flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'created_at'" :direction="$sortDirection" wire:click="sort('created_at')">
-                        {{ __('Creado') }}
-                    </flux:table.column>
-                    <flux:table.column>{{ __('Asignado a') }}</flux:table.column>
-                </flux:table.row>
-            </flux:table.columns>
-            <flux:table.rows>
-                @foreach ($tickets as $ticket)
-                    <flux:table.row :key="$ticket->id">
-                        <flux:table.cell>{{ $ticket->id }}</flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->user->name }}</flux:table.cell>
-                        <flux:table.cell class="whitespace-normal">
-                            <a href="{{ route('ticket.show', $ticket) }}" wire:navigate class="block min-w-40 wrap-break-word hover:underline">
-                                {{ $ticket->title }}
-                            </a>
-                        </flux:table.cell>
-                        <flux:table.cell>{{ $ticket->priority }}</flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->urgency }}</flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->impact }}</flux:table.cell>
-                        <flux:table.cell>
-                            <flux:badge size="sm" :color="$ticket->statusColor()">
-                                {{ $ticket->statusLabel() }}
-                            </flux:badge>
-                        </flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">
-                            @if ($ticket->validationWasRequested())
-                                <div class="flex items-center gap-2">
-                                    <flux:badge size="sm" :color="$ticket->validationStatusColor()">
-                                        {{ $ticket->validationStatusLabel() }}
-                                    </flux:badge>
-                                    @if ($ticket->resolution_rating !== null)
-                                        <span class="flex items-center gap-0.5 text-yellow-500">
-                                            <flux:icon.star variant="solid" class="size-4" />
-                                            {{ $ticket->resolution_rating }}
-                                        </span>
-                                    @endif
-                                </div>
-                            @else
-                                —
-                            @endif
-                        </flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->created_at->diffForHumans() }}</flux:table.cell>
-                        <flux:table.cell>
-                            <flux:select size="sm" wire:change="assign({{ $ticket->id }}, $event.target.value)">
-                                <flux:select.option value="" :selected="$ticket->assigned_to === null">
-                                    {{ __('Sin asignar') }}
-                                </flux:select.option>
-                                @foreach ($assignableUsers as $assignable)
-                                    <flux:select.option value="{{ $assignable->id }}" :selected="$ticket->assigned_to === $assignable->id">
-                                        {{ $assignable->name }} ({{ $assignable->role->value }})
-                                    </flux:select.option>
-                                @endforeach
-                            </flux:select>
-                        </flux:table.cell>
+        <x-table-panel>
+            <flux:table :paginate="$tickets">
+                <flux:table.columns>
+                    <flux:table.row>
+                        <flux:table.column class="w-24">{{ __('ID') }}</flux:table.column>
+                        <flux:table.column>{{ __('Asunto') }}</flux:table.column>
+                        <flux:table.column>{{ __('Estado') }}</flux:table.column>
+                        <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
+                            {{ __('Prioridad') }}
+                        </flux:table.column>
+                        <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'urgency'" :direction="$sortDirection" wire:click="sort('urgency')">
+                            {{ __('Urgencia') }}
+                        </flux:table.column>
+                        <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'impact'" :direction="$sortDirection" wire:click="sort('impact')">
+                            {{ __('Impacto') }}
+                        </flux:table.column>
+                        <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
+                        <flux:table.column>{{ __('Asignado a') }}</flux:table.column>
                     </flux:table.row>
-                @endforeach
-            </flux:table.rows>
-        </flux:table>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @foreach ($tickets as $ticket)
+                        <flux:table.row :key="$ticket->id">
+                            <flux:table.cell class="text-xs text-neutral-400">#TK-{{ $ticket->id }}</flux:table.cell>
+                            <flux:table.cell class="whitespace-normal">
+                                <x-tickets.subject-cell :ticket="$ticket" />
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <flux:badge size="sm" :color="$ticket->statusColor()">
+                                    {{ $ticket->statusLabel() }}
+                                </flux:badge>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <x-tickets.priority-indicator :ticket="$ticket" />
+                            </flux:table.cell>
+                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->urgency }}</flux:table.cell>
+                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->impact }}</flux:table.cell>
+                            <flux:table.cell class="hidden lg:table-cell">
+                                <x-user-cell :user="$ticket->user" />
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <flux:select size="sm" wire:change="assign({{ $ticket->id }}, $event.target.value)">
+                                    <flux:select.option value="" :selected="$ticket->assigned_to === null">
+                                        {{ __('Sin asignar') }}
+                                    </flux:select.option>
+                                    @foreach ($assignableUsers as $assignable)
+                                        <flux:select.option value="{{ $assignable->id }}" :selected="$ticket->assigned_to === $assignable->id">
+                                            {{ $assignable->name }} ({{ $assignable->role->value }})
+                                        </flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforeach
+                </flux:table.rows>
+            </flux:table>
+        </x-table-panel>
     @endif
 </div>

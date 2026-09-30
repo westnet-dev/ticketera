@@ -1,16 +1,18 @@
 <x-layouts::app :title="__('Nuevo ticket')">
-    <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            <flux:heading size="lg">{{ __("Nuevo ticket") }}</flux:heading>
-
-            <flux:button
-                icon="arrow-left"
-                href="{{ route('ticket.index') }}"
-                class="w-fit"
-            >
-                {{ __("Volver a tickets") }}
-            </flux:button>
-        </div>
+    <div class="mx-auto flex h-full w-full max-w-6xl flex-1 flex-col gap-6 rounded-xl">
+        <x-page-header :title="__('Nuevo ticket')" :subtitle="__('Contanos qué necesitás; el equipo lo revisa antes de asignarlo.')">
+            <x-slot:actions>
+                <flux:button
+                    icon="arrow-left"
+                    href="{{ route('ticket.index') }}"
+                    wire:navigate
+                    variant="outline"
+                    size="sm"
+                >
+                    {{ __("Volver a tickets") }}
+                </flux:button>
+            </x-slot:actions>
+        </x-page-header>
 
         <livewire:tickets.create-ticket />
     </div>

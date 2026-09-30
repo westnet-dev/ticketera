@@ -391,7 +391,8 @@ test('every ticket tab offers a pending validation filter carrying its count', f
         ->get(route($route))
         ->assertOk()
         ->assertSee(route('ticket.pending-validation'))
-        ->assertSee(__('Por validar (:count)', ['count' => 3]));
+        ->assertViewHas('ticketCounts', fn (array $counts) => $counts['pending_validation'] === 3)
+        ->assertSeeHtml('<span class="text-xs font-normal text-neutral-400">3</span>');
 })->with(['ticket.index', 'ticket.finished', 'ticket.drafts', 'ticket.pending-validation']);
 
 test('the pending validation filter drops its count once nothing is awaiting an answer', function () {
@@ -403,7 +404,7 @@ test('the pending validation filter drops its count once nothing is awaiting an 
         ->get(route('ticket.index'))
         ->assertOk()
         ->assertSee(__('Por validar'))
-        ->assertDontSee(__('Por validar (:count)', ['count' => 1]));
+        ->assertViewHas('ticketCounts', fn (array $counts) => $counts['pending_validation'] === 0);
 });
 
 test('the client dashboard links to the pending validation tab', function () {

@@ -96,6 +96,31 @@ class Ticket extends Model
         $query->whereIn('user_id', $userIds);
     }
 
+    /**
+     * Tickets shown in a user's own listings: the ones they authored and,
+     * for admins, also the ones assigned to them.
+     *
+     * @param  Builder  $query
+     */
+    protected function scopeListedFor($query, User $user): void
+    {
+        $query->where(function (Builder $q) use ($user) {
+            $q->where('user_id', $user->id);
+
+            if ($user->isAdmin()) {
+                $q->orWhere('assigned_to', $user->id);
+            }
+        });
+    }
+
+    /**
+     * Tickets that are being worked on, which is what the "en curso" tab lists.
+     */
+    protected function scopeOngoing($query): void
+    {
+        $query->whereIn('status', ['open', 'in_progress', 'paused']);
+    }
+
     protected function scopeOpen($query): void
     {
         $query->where('status', 'open');
@@ -192,6 +217,27 @@ class Ticket extends Model
             'resolved' => __('Resuelto'),
             'cancelled' => __('Cancelado'),
             default => __('Desconocido'),
+        };
+    }
+
+    /**
+     * Bucket the 1–10 priority score into the level shown in listings.
+     */
+    public function priorityLabel(): string
+    {
+        return match (true) {
+            $this->priority >= 7 => __('Alta'),
+            $this->priority >= 4 => __('Media'),
+            default => __('Baja'),
+        };
+    }
+
+    public function priorityColor(): string
+    {
+        return match (true) {
+            $this->priority >= 7 => 'red',
+            $this->priority >= 4 => 'orange',
+            default => 'zinc',
         };
     }
 

@@ -1,8 +1,10 @@
 <x-layouts::app :title="__('Tickets awaiting validation')">
-    <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <flux:heading size="lg">{{ __("Mis tickets") }}</flux:heading>
+    <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
+        <x-tickets.list-header :ticket-counts="$ticketCounts" />
 
-        <x-tickets.filter-tabs active="pending_validation" :pending-validation-count="$pendingValidationCount" />
+        <x-tickets.summary-cards :ticket-counts="$ticketCounts" />
+
+        <x-tickets.filter-tabs active="pending_validation" :ticket-counts="$ticketCounts" />
 
         @if ($pendingValidationCount > 0)
             <flux:callout icon="check-badge" variant="warning">

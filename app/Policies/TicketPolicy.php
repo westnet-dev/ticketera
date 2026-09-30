@@ -114,6 +114,26 @@ class TicketPolicy
     }
 
     /**
+     * Determine whether the user can edit a submitted ticket's details.
+     *
+     * Admins can edit any submitted ticket. Its author can only edit it while it
+     * waits on triage: once approved, its information is frozen for them, and a
+     * rejected ticket goes through reviseTriage instead. Drafts have their own flow.
+     */
+    public function edit(User $user, Ticket $ticket): bool
+    {
+        if ($ticket->isDraft()) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->id === $ticket->user_id && $ticket->triage_status === TriageStatus::Pending;
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Ticket $ticket): bool

@@ -32,8 +32,12 @@ new class extends Component
 };
 ?>
 
-<div class="flex flex-1 flex-col gap-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700" wire:poll.5s>
-    <div class="flex max-h-[60vh] flex-col gap-3 overflow-y-auto lg:max-h-[33rem]">
+<div class="flex flex-1 flex-col rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900" wire:poll.5s>
+    <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+        <flux:heading size="sm">{{ __('Conversación') }}</flux:heading>
+    </div>
+
+    <div class="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-4 lg:max-h-[33rem]">
         @forelse ($messages as $message)
             <div @class([
                 'max-w-[85%] rounded-lg px-3 py-2 text-sm wrap-break-word sm:max-w-[75%]',
@@ -49,11 +53,11 @@ new class extends Component
         @endforelse
     </div>
 
-    <form wire:submit.prevent="send" class="mt-auto flex items-start gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-700">
+    <form wire:submit.prevent="send" class="mt-auto flex items-start gap-2 border-t border-neutral-200 p-4 dark:border-neutral-700">
         <flux:field class="flex-1">
             <flux:textarea wire:model="body" rows="2" placeholder="{{ __('Escribí tu mensaje...') }}" />
             <flux:error name="body" />
         </flux:field>
-        <flux:button type="submit">{{ __('Enviar') }}</flux:button>
+        <flux:button type="submit" variant="primary" icon="paper-airplane">{{ __('Enviar') }}</flux:button>
     </form>
 </div>

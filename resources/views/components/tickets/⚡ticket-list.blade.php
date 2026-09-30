@@ -19,7 +19,7 @@ new class extends Component
 
     public function sort(string $column): void
     {
-        if (! in_array($column, ['priority', 'urgency', 'impact', 'created_at'], true)) {
+        if (! in_array($column, ['priority', 'urgency', 'impact', 'created_at', 'updated_at'], true)) {
             return;
         }
 
@@ -35,18 +35,12 @@ new class extends Component
 
     public function with(): array
     {
-        $sortBy = in_array($this->sortBy, ['priority', 'urgency', 'impact', 'created_at'], true) ? $this->sortBy : 'created_at';
+        $sortBy = in_array($this->sortBy, ['priority', 'urgency', 'impact', 'created_at', 'updated_at'], true) ? $this->sortBy : 'created_at';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
         $query = Ticket::query()
             ->with(['user', 'assignedTo'])
-            ->where(function ($q) {
-                $q->where('user_id', auth()->id());
-
-                if (auth()->user()->isAdmin()) {
-                    $q->orWhere('assigned_to', auth()->id());
-                }
-            });
+            ->listedFor(auth()->user());
 
         if ($this->statusFilter === 'finished') {
             $query->finished();
@@ -55,7 +49,7 @@ new class extends Component
         } elseif ($this->statusFilter === 'pending_validation') {
             $query->where('user_id', auth()->id())->pendingValidation();
         } else {
-            $query->whereIn('status', ['open', 'in_progress', 'paused']);
+            $query->ongoing();
         }
 
         return [
@@ -71,85 +65,58 @@ new class extends Component
 
 <div>
     @if ($tickets->isEmpty())
-        <div class="flex flex-col items-center justify-center gap-2 rounded-lg border border-neutral-200 p-8 dark:border-neutral-700">
-            <x-heroicon-o-ticket class="mx-auto size-32 text-neutral-400 sm:size-48" />
-            @if ($statusFilter === 'finished')
-                <p class="text-center text-sm text-neutral-500">{{ __('No tienes tickets finalizados.') }}</p>
-            @elseif ($statusFilter === 'draft')
-                <p class="text-center text-sm text-neutral-500">{{ __('No tienes borradores.') }}</p>
-            @elseif ($statusFilter === 'pending_validation')
-                <p class="text-center text-sm text-neutral-500">{{ __('No tenés tickets esperando tu validación.') }}</p>
-            @else
-                <p class="text-center text-sm text-neutral-500">{{ __('No tienes ningún ticket.') }}</p>
-                <p class="text-center text-xs text-neutral-100">{{ __('Haz clic en "Nuevo ticket" para crear uno.') }}</p>
-            @endif
-        </div>
+        @if ($statusFilter === 'finished')
+            <x-empty-state :message="__('No tienes tickets finalizados.')" />
+        @elseif ($statusFilter === 'draft')
+            <x-empty-state icon="pencil-square" :message="__('No tienes borradores.')" />
+        @elseif ($statusFilter === 'pending_validation')
+            <x-empty-state icon="check-badge" :message="__('No tenés tickets esperando tu validación.')" />
+        @else
+            @php($createHint = __('Haz clic en "Nuevo ticket" para crear uno.'))
+            <x-empty-state :message="__('No tienes ningún ticket.')" :hint="$createHint" />
+        @endif
     @else
-        <flux:table :paginate="$tickets">
-            <flux:table.columns>
-                <flux:table.row>
-                    <flux:table.column>{{ __('ID') }}</flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
-                    <flux:table.column>{{ __('Título') }}</flux:table.column>
-                    <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
-                        {{ __('Prioridad') }}
-                    </flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'urgency'" :direction="$sortDirection" wire:click="sort('urgency')">
-                        {{ __('Urgencia') }}
-                    </flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'impact'" :direction="$sortDirection" wire:click="sort('impact')">
-                        {{ __('Impacto') }}
-                    </flux:table.column>
-                    <flux:table.column>{{ __('Estado') }}</flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell">{{ __('Aprobación') }}</flux:table.column>
-                    <flux:table.column class="hidden lg:table-cell">{{ __('Validación') }}</flux:table.column>
-                    @if (auth()->user()->isAdmin())
-                        <flux:table.column class="hidden lg:table-cell">{{ __('Asignado a') }}</flux:table.column>
-                    @endif
-                    <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'created_at'" :direction="$sortDirection" wire:click="sort('created_at')">
-                        {{ __('Creado') }}
-                    </flux:table.column>
-                </flux:table.row>
-            </flux:table.columns>
-            <flux:table.rows>
-                @foreach ($tickets as $ticket)
-                    <flux:table.row :key="$ticket->id">
-                        <flux:table.cell>{{ $ticket->id }}</flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->user->name }}</flux:table.cell>
-                        <flux:table.cell class="whitespace-normal">
-                            <a href="{{ route('ticket.show', $ticket) }}" wire:navigate class="block min-w-40 wrap-break-word hover:underline">
-                                {{ $ticket->title }}
-                            </a>
-                        </flux:table.cell>
-                        <flux:table.cell>{{ $ticket->priority }}</flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->urgency }}</flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->impact }}</flux:table.cell>
-                        <flux:table.cell>
-                            <flux:badge size="sm" :color="$ticket->statusColor()">
-                                {{ $ticket->statusLabel() }}
-                            </flux:badge>
-                        </flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">
-                            <flux:badge size="sm" :color="$ticket->triageStatusColor()">
-                                {{ $ticket->triageStatusLabel() }}
-                            </flux:badge>
-                        </flux:table.cell>
-                        <flux:table.cell class="hidden lg:table-cell">
-                            @if ($ticket->validationWasRequested())
-                                <flux:badge size="sm" :color="$ticket->validationStatusColor()">
-                                    {{ $ticket->validationStatusLabel() }}
-                                </flux:badge>
-                            @else
-                                —
-                            @endif
-                        </flux:table.cell>
-                        @if (auth()->user()->isAdmin())
-                            <flux:table.cell class="hidden lg:table-cell">{{ $ticket->assignedTo?->name ?? __('Sin asignar') }}</flux:table.cell>
-                        @endif
-                        <flux:table.cell class="hidden lg:table-cell">{{ $ticket->created_at->diffForHumans() }}</flux:table.cell>
+        <x-table-panel>
+            <flux:table :paginate="$tickets">
+                <flux:table.columns>
+                    <flux:table.row>
+                        <flux:table.column class="w-24">{{ __('ID') }}</flux:table.column>
+                        <flux:table.column>{{ __('Asunto') }}</flux:table.column>
+                        <flux:table.column>{{ __('Estado') }}</flux:table.column>
+                        <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
+                            {{ __('Prioridad') }}
+                        </flux:table.column>
+                        <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
+                        <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'updated_at'" :direction="$sortDirection" wire:click="sort('updated_at')">
+                            {{ __('Última actualización') }}
+                        </flux:table.column>
                     </flux:table.row>
-                @endforeach
-            </flux:table.rows>
-        </flux:table>
+                </flux:table.columns>
+                <flux:table.rows>
+                    @foreach ($tickets as $ticket)
+                        <flux:table.row :key="$ticket->id">
+                            <flux:table.cell class="text-xs text-neutral-400">#TK-{{ $ticket->id }}</flux:table.cell>
+                            <flux:table.cell class="whitespace-normal">
+                                <x-tickets.subject-cell :ticket="$ticket" :show-assignee="auth()->user()->isAdmin()" />
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <flux:badge size="sm" :color="$ticket->statusColor()">
+                                    {{ $ticket->statusLabel() }}
+                                </flux:badge>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <x-tickets.priority-indicator :ticket="$ticket" />
+                            </flux:table.cell>
+                            <flux:table.cell class="hidden lg:table-cell">
+                                <x-user-cell :user="$ticket->user" />
+                            </flux:table.cell>
+                            <flux:table.cell class="hidden text-xs text-neutral-500 lg:table-cell dark:text-neutral-400">
+                                {{ $ticket->updated_at->diffForHumans() }}
+                            </flux:table.cell>
+                        </flux:table.row>
+                    @endforeach
+                </flux:table.rows>
+            </flux:table>
+        </x-table-panel>
     @endif
 </div>
