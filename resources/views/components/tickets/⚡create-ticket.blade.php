@@ -8,6 +8,7 @@ use App\Models\TicketCategory;
 use App\Models\TicketImage;
 use App\Models\TicketSetting;
 use App\Models\User;
+use App\Rules\RichTextLength;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -122,7 +123,7 @@ new class extends Component
         $this->validate([
             'author_id' => ['nullable', Rule::exists('users', 'id')->where('role', Role::Client->value)->whereNull('deleted_at')],
             'title' => 'required|string|min:5|max:255',
-            'description' => 'required|string|min:10',
+            'description' => ['required', 'string', new RichTextLength(min: 10)],
             'importance' => ['required', Rule::enum(Level::class)],
             'urgency' => ['required', Rule::enum(Level::class)],
             'impact' => ['required', Rule::enum(Level::class)],
@@ -322,7 +323,7 @@ new class extends Component
             <flux:field>
                 <flux:label>Descripción</flux:label>
                 <flux:description class="">Describe tu solicitud o problema con la mayor cantidad de detalles posibles.</flux:description>
-                <flux:textarea wire:model="description" />
+                <x-tickets.rich-editor wire:model="description" />
                 <flux:error name="description" />
             </flux:field>
 

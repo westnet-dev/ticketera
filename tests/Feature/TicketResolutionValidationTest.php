@@ -111,7 +111,7 @@ test('the author rejects the resolution with a reason, reopening the ticket', fu
     expect($ticket->validation_status)->toBe(ValidationStatus::Rejected);
     expect($ticket->status)->toBe('in_progress');
     expect($ticket->assigned_to)->toBe($agent->id);
-    expect($ticket->messages()->where('body', 'El servicio volvió a caerse apenas cerraron el ticket.')->exists())->toBeTrue();
+    expect($ticket->messages()->where('body', '<p>El servicio volvió a caerse apenas cerraron el ticket.</p>')->exists())->toBeTrue();
 });
 
 test('rejecting without a reason fails validation and changes neither validation nor status', function () {

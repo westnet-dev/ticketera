@@ -1,0 +1,16 @@
+/* Tiptap placeholder (rendered by the Placeholder extension via data-placeholder) */
+.tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: var(--color-zinc-400);
+}
+
+.tiptap :first-child {
+    margin-top: 0;
+}
+
+.tiptap :last-child {
+    margin-bottom: 0;
+}

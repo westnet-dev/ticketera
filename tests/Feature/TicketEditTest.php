@@ -79,7 +79,7 @@ test('an admin can edit tickets in any triage or status', function (string $tria
 
     $ticket->refresh();
 
-    expect($ticket->description)->toBe('Descripción editada con más detalle sobre el problema.');
+    expect($ticket->description)->toBe('<p>Descripción editada con más detalle sobre el problema.</p>');
     expect($ticket->triage_status->value)->toBe($triageStatus);
     expect($ticket->status)->toBe($status);
 })->with([

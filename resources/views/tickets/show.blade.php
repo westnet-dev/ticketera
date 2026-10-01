@@ -42,7 +42,7 @@
 
                 <x-panel :heading="__('Descripción')">
                     <div class="flex flex-col gap-4 p-4">
-                        <p class="w-full whitespace-pre-line wrap-break-word text-sm text-neutral-700 dark:text-neutral-300">{{ $ticket->description }}</p>
+                        <x-tickets.rich-text :html="$ticket->description" class="w-full text-neutral-700 dark:text-neutral-300" />
 
                         @if ($ticket->images->isNotEmpty())
                             <div class="flex flex-wrap gap-2">

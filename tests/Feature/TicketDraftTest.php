@@ -170,3 +170,22 @@ test('a client\'s draft tickets do not count toward the open-ticket cap', functi
         ->call('save')
         ->assertHasErrors(['title']);
 });
+
+test('the create ticket form uses the rich editor for the description', function () {
+    $this->actingAs(User::factory()->create());
+
+    Livewire::test('tickets.create-ticket')
+        ->assertSeeHtml('x-data="richEditor(')
+        ->assertSeeHtml('wire:model="description"')
+        ->assertDontSeeHtml('<textarea');
+});
+
+test('a draft description written in the rich editor is loaded back as html', function () {
+    $client = User::factory()->create();
+    $draft = Ticket::factory()->for($client)->draft()->create(['description' => '<p><strong>Hola</strong> mundo</p>']);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.create-ticket', ['draft' => $draft])
+        ->assertSet('description', '<p><strong>Hola</strong> mundo</p>');
+});

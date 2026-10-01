@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Ticket;
+use App\Rules\RichTextLength;
 use Livewire\Component;
 
 new class extends Component
@@ -12,7 +13,7 @@ new class extends Component
     public function send(): void
     {
         $this->validate([
-            'body' => 'required|string|min:1|max:2000',
+            'body' => ['required', 'string', new RichTextLength(min: 1, max: 2000)],
         ]);
 
         $this->ticket->messages()->create([
@@ -45,7 +46,7 @@ new class extends Component
                 'self-start bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100' => $message->user_id !== auth()->id(),
             ])>
                 <p class="mb-1 text-xs font-semibold opacity-75">{{ $message->user->name }}</p>
-                <p class="whitespace-pre-line">{{ $message->body }}</p>
+                <x-tickets.rich-text :html="$message->body" :inverted="$message->user_id === auth()->id()" />
                 <p class="mt-1 text-[10px] opacity-60">{{ $message->created_at->diffForHumans() }}</p>
             </div>
         @empty
@@ -53,11 +54,12 @@ new class extends Component
         @endforelse
     </div>
 
-    <form wire:submit.prevent="send" class="mt-auto flex items-start gap-2 border-t border-neutral-200 p-4 dark:border-neutral-700">
-        <flux:field class="flex-1">
-            <flux:textarea wire:model="body" rows="2" placeholder="{{ __('Escribí tu mensaje...') }}" />
+    <form wire:submit.prevent="send" class="mt-auto flex flex-col  gap-2 border-t border-neutral-200 p-4 dark:border-neutral-700">
+        <flux:field class="flex-1 relative">
+            <x-tickets.rich-editor wire:model="body" compact submit-on-enter class="relative " :placeholder="__('Escribí tu mensaje... (Shift+Enter para nueva línea)')" />
+            <flux:button type="submit" size="xs" variant="outline" icon="paper-airplane" class="ml-auto absolute! bottom-2 right-2" />
             <flux:error name="body" />
         </flux:field>
-        <flux:button type="submit" variant="primary" icon="paper-airplane">{{ __('Enviar') }}</flux:button>
+
     </form>
 </div>

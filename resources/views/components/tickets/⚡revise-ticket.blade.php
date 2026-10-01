@@ -5,6 +5,7 @@ use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\TicketImage;
+use App\Rules\RichTextLength;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -36,7 +37,7 @@ new class extends Component
     public function mount(): void
     {
         $this->title = $this->ticket->title;
-        $this->description = $this->ticket->description;
+        $this->description = (string) $this->ticket->description;
         $this->importance = $this->ticket->importance->value;
         $this->urgency = $this->ticket->urgency->value;
         $this->impact = $this->ticket->impact->value;
@@ -49,7 +50,7 @@ new class extends Component
 
         $validated = $this->validate([
             'title' => 'required|string|min:5|max:255',
-            'description' => 'required|string|min:10',
+            'description' => ['required', 'string', new RichTextLength(min: 10)],
             'importance' => ['required', Rule::enum(Level::class)],
             'urgency' => ['required', Rule::enum(Level::class)],
             'impact' => ['required', Rule::enum(Level::class)],
@@ -116,7 +117,11 @@ new class extends Component
                 <flux:error name="title" />
             </flux:field>
 
-            <flux:textarea wire:model="description" :label="__('Descripción')" />
+            <flux:field>
+                <flux:label>{{ __('Descripción') }}</flux:label>
+                <x-tickets.rich-editor wire:model="description" />
+                <flux:error name="description" />
+            </flux:field>
 
             <x-tickets.level-select wire:model.live="importance" :label="__('Importancia')" />
 

@@ -70,7 +70,7 @@ test('an admin can reject a pending ticket with a reason, visible in the ticket 
         ->assertHasNoErrors();
 
     expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Rejected);
-    expect($ticket->messages()->where('body', 'Falta más información sobre el problema.')->exists())->toBeTrue();
+    expect($ticket->messages()->where('body', '<p>Falta más información sobre el problema.</p>')->exists())->toBeTrue();
 });
 
 test('rejecting without a reason fails validation and does not change triage status', function () {
@@ -113,7 +113,7 @@ test('an admin can reject a pending ticket with a reason from the ticket detail 
         ->assertHasNoErrors();
 
     expect($ticket->refresh()->triage_status)->toBe(TriageStatus::Rejected);
-    expect($ticket->messages()->where('body', 'Falta más información sobre el problema.')->exists())->toBeTrue();
+    expect($ticket->messages()->where('body', '<p>Falta más información sobre el problema.</p>')->exists())->toBeTrue();
 });
 
 test('approving a ticket twice from the ticket detail page is a no-op instead of a 403', function () {

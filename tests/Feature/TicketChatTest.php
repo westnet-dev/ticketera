@@ -51,7 +51,7 @@ test('a client can send a message on their ticket', function () {
 
     $message = TicketMessage::first();
     expect($message->user_id)->toBe($user->id)
-        ->and($message->body)->toBe('Necesito ayuda con mi conexión.');
+        ->and($message->body)->toBe('<p>Necesito ayuda con mi conexión.</p>');
 });
 
 test('a message requires a body', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\SanitizedHtml;
 use App\Enums\Level;
 use App\Enums\TicketPriority;
 use App\Enums\TriageStatus;
@@ -20,7 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $user_id
  * @property int|null $created_by
  * @property string $title
- * @property string $description
+ * @property string|null $description
  * @property Level $importance
  * @property Level $urgency
  * @property Level $impact
@@ -54,6 +55,7 @@ class Ticket extends Model
     protected function casts(): array
     {
         return [
+            'description' => SanitizedHtml::class,
             'importance' => Level::class,
             'urgency' => Level::class,
             'impact' => Level::class,
