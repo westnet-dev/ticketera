@@ -61,6 +61,14 @@
                         >
                             {{ __('Áreas') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item
+                            icon="tag"
+                            :href="route('admin.categories')"
+                            :current="request()->routeIs('admin.categories')"
+                            wire:navigate
+                        >
+                            {{ __('Categorías') }}
+                        </flux:sidebar.item>
                     @else
                         <flux:sidebar.item
                             icon="ticket"

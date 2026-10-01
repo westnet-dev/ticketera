@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
@@ -103,9 +104,9 @@ test('submitting a complete draft moves it to open with pending triage for a cli
     Livewire::test('tickets.create-ticket', ['draft' => $draft])
         ->set('title', 'El servicio está caído')
         ->set('description', 'No hay conexión en toda la oficina desde hace una hora.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('submit')
         ->assertHasNoErrors();
@@ -125,9 +126,9 @@ test('submitting a complete draft moves it to open with approved triage for an a
     Livewire::test('tickets.create-ticket', ['draft' => $draft])
         ->set('title', 'El servicio está caído')
         ->set('description', 'No hay conexión en toda la oficina desde hace una hora.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('submit')
         ->assertHasNoErrors();
@@ -162,9 +163,9 @@ test('a client\'s draft tickets do not count toward the open-ticket cap', functi
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Otro ticket mas')
         ->set('description', 'Descripcion suficientemente larga.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasErrors(['title']);

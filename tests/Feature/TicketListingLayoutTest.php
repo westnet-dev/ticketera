@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\User;
@@ -36,25 +37,25 @@ test('admins see how many ongoing tickets are assigned to them', function () {
 
 test('each ticket row shows its id, priority level and client', function () {
     $client = User::factory()->create(['name' => 'Cliente Ficticio']);
-    Ticket::factory()->for($client)->create(['status' => 'open', 'priority' => 8, 'title' => 'Sin conexión']);
+    Ticket::factory()->for($client)->create(['status' => 'open', 'importance' => Level::High, 'urgency' => Level::High, 'title' => 'Sin conexión']);
 
     $this->actingAs($client)
         ->get(route('ticket.index'))
         ->assertSee('#TK-')
         ->assertSee('Sin conexión')
-        ->assertSee('Alta')
+        ->assertSee('Crítica')
         ->assertSee('Cliente Ficticio');
 });
 
-test('priority scores are bucketed into levels', function (int $priority, string $label) {
-    expect(Ticket::factory()->make(['priority' => $priority])->priorityLabel())->toBe($label);
+test('the priority label follows the importance and urgency matrix', function (Level $importance, Level $urgency, string $label) {
+    $ticket = Ticket::factory()->create(['importance' => $importance, 'urgency' => $urgency]);
+
+    expect($ticket->priorityLabel())->toBe($label);
 })->with([
-    [10, 'Alta'],
-    [7, 'Alta'],
-    [6, 'Media'],
-    [4, 'Media'],
-    [3, 'Baja'],
-    [1, 'Baja'],
+    [Level::High, Level::High, 'Crítica'],
+    [Level::Medium, Level::High, 'Alta'],
+    [Level::High, Level::Low, 'Media'],
+    [Level::Low, Level::Medium, 'Baja'],
 ]);
 
 test('the admin ticket list tabs carry a count for each filter', function () {
@@ -78,7 +79,7 @@ test('the admin ticket list tabs carry a count for each filter', function () {
 
 test('the ticket detail header shows the ticket id, status and priority level', function () {
     $client = User::factory()->create();
-    $ticket = Ticket::factory()->for($client)->create(['status' => 'open', 'priority' => 2]);
+    $ticket = Ticket::factory()->for($client)->create(['status' => 'open', 'importance' => Level::Low, 'urgency' => Level::Low]);
 
     $this->actingAs($client)
         ->get(route('ticket.show', $ticket))

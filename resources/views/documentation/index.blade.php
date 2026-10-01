@@ -95,12 +95,12 @@
                     </dl>
 
                     <flux:text>
-                        {{ __('Además, calificás el pedido en tres escalas del 1 al 10. El equipo las usa para ordenar la cola de trabajo, así que conviene ser realista:') }}
+                        {{ __('Además, calificás el pedido en tres escalas: Baja, Media o Alta. Con ellas se calcula la prioridad que ordena la cola de trabajo, así que conviene ser realista:') }}
                     </flux:text>
 
                     <div class="grid gap-3 md:grid-cols-3">
                         @foreach ([
-                            [__('Prioridad'), __('Qué tan importante es este pedido comparado con tus otros pedidos.')],
+                            [__('Importancia'), __('Qué tan importante es este pedido comparado con tus otros pedidos.')],
                             [__('Urgencia'), __('Qué tan rápido necesitás que se resuelva.')],
                             [__('Impacto'), __('Cuánto afecta a los clientes o al negocio: a una persona, a un área entera, a toda la empresa.')],
                         ] as [$title, $body])
@@ -111,9 +111,38 @@
                         @endforeach
                     </div>
 
+                    <flux:text>
+                        {{ __('La prioridad no se elige: se calcula cruzando la importancia con la urgencia. Entre tickets de la misma prioridad, el de mayor impacto va primero.') }}
+                    </flux:text>
+
+                    <div class="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-neutral-200 text-left text-xs uppercase text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+                                    <th class="p-3">{{ __('Importancia \\ Urgencia') }}</th>
+                                    @foreach (\App\Enums\Level::cases() as $urgency)
+                                        <th class="p-3">{{ $urgency->label() }}</th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (array_reverse(\App\Enums\Level::cases()) as $importance)
+                                    <tr class="border-b border-neutral-100 last:border-0 dark:border-neutral-800">
+                                        <th class="p-3 text-left font-medium">{{ $importance->label() }}</th>
+                                        @foreach (\App\Enums\Level::cases() as $urgency)
+                                            <td class="p-3">
+                                                <x-tickets.priority-indicator :priority="\App\Enums\TicketPriority::fromMatrix($importance, $urgency)" />
+                                            </td>
+                                        @endforeach
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
                     <flux:callout icon="light-bulb" color="blue">
                         <flux:callout.text>
-                            {{ __('Si marcás todo con 10, el equipo no puede distinguir lo verdaderamente crítico. Reservá los valores altos para lo que realmente lo amerita.') }}
+                            {{ __('Si marcás todo como Alta, el equipo no puede distinguir lo verdaderamente crítico. Reservá Alta para lo que realmente lo amerita.') }}
                         </flux:callout.text>
                     </flux:callout>
                 </section>
@@ -262,7 +291,7 @@
                             </div>
                         @endforeach
                     </dl>
-                    <flux:text>{{ __('En los listados podés ordenar por prioridad, urgencia, impacto o fecha de creación tocando el encabezado de la columna.') }}</flux:text>
+                    <flux:text>{{ __('En los listados podés ordenar por prioridad (con el impacto como desempate) o por fecha tocando el encabezado de la columna.') }}</flux:text>
                 </section>
 
                 {{-- Cuenta --}}
@@ -311,7 +340,7 @@
                         <div class="grid gap-3 md:grid-cols-2">
                             @foreach ([
                                 [__('Triage'), __('Lista los tickets pendientes de revisión inicial. Al aprobar, el ticket pasa a la cola de trabajo; al rechazar, tenés que escribir un motivo que se publica en el chat y el cliente puede corregirlo y reenviarlo.')],
-                                [__('Tickets'), __('Cola de trabajo con los tickets aprobados. Podés filtrar por sin asignar, resueltos o cancelados, ordenar por prioridad, urgencia, impacto o fecha, y asignar cada ticket a un administrador.')],
+                                [__('Tickets'), __('Cola de trabajo con los tickets aprobados. Podés filtrar por sin asignar, resueltos o cancelados, ordenar por prioridad, importancia, urgencia, impacto o fecha, y asignar cada ticket a un administrador.')],
                                 [__('Cambio de estado'), __('Desde el detalle de un ticket aprobado cambiás su estado. Al pasarlo a Resuelto se le pide validación al autor; si lo sacás de Resuelto antes de que responda, esa solicitud se retira.')],
                                 [__('Mis tickets'), __('Muestra los tickets que cargaste para vos y los que tenés asignados.')],
                                 [__('Crear a nombre de un cliente'), __('Al crear un ticket podés elegir un cliente como autor. El ticket queda aprobado de entrada, no puede guardarse como borrador y la validación la hace el cliente. Los tickets de administradores no tienen límite.')],

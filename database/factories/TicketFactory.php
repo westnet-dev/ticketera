@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Enums\ValidationStatus;
 use App\Models\Ticket;
@@ -24,9 +25,9 @@ class TicketFactory extends Factory
             'user_id' => User::factory(),
             'title' => fake()->sentence(6),
             'description' => fake()->paragraph(),
-            'priority' => fake()->numberBetween(1, 10),
-            'urgency' => fake()->numberBetween(1, 10),
-            'impact' => fake()->numberBetween(1, 10),
+            'importance' => fake()->randomElement(Level::cases()),
+            'urgency' => fake()->randomElement(Level::cases()),
+            'impact' => fake()->randomElement(Level::cases()),
             'status' => fake()->randomElement(['open', 'in_progress', 'paused', 'resolved', 'cancelled']),
             'triage_status' => TriageStatus::Approved,
             'validation_status' => ValidationStatus::NotRequested,
@@ -70,9 +71,9 @@ class TicketFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'status' => 'draft',
             'description' => null,
-            'priority' => 5,
-            'urgency' => 5,
-            'impact' => 5,
+            'importance' => Level::Medium,
+            'urgency' => Level::Medium,
+            'impact' => Level::Medium,
         ]);
     }
 }

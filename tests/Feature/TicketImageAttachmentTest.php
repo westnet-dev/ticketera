@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -28,9 +29,9 @@ test('a ticket can be created with the maximum of 5 images', function () {
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Cinco capturas del problema')
         ->set('description', 'Adjunto todas las capturas que pude tomar del error.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', fakeTicketImages(5))
         ->call('save')
         ->assertHasNoErrors();
@@ -46,9 +47,9 @@ test('a ticket cannot be created with more than 5 images', function () {
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Seis capturas del problema')
         ->set('description', 'Adjunto más capturas de las permitidas por el sistema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', fakeTicketImages(6))
         ->call('save')
         ->assertHasErrors(['images']);
@@ -64,9 +65,9 @@ test('a non image file cannot be attached to a ticket', function () {
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Adjunto un archivo que no es imagen')
         ->set('description', 'El sistema solo debería aceptar imágenes como adjunto.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->create('reporte.pdf', 100, 'application/pdf')])
         ->call('save')
         ->assertHasErrors(['images.0']);
@@ -85,9 +86,9 @@ test('the images already attached to a draft count toward the 5 image cap when s
     Livewire::test('tickets.create-ticket', ['draft' => $draft])
         ->set('title', 'Borrador con cuatro imágenes previas')
         ->set('description', 'Intento sumar dos imágenes más y superar el tope.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', fakeTicketImages(2))
         ->call('submit')
         ->assertHasErrors(['images']);

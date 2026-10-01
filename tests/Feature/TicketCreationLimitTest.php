@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
 use App\Models\User;
@@ -21,9 +22,9 @@ test('a client without an area under the limit can create a new ticket', functio
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Necesito ayuda con mi conexión')
         ->set('description', 'La conexión se corta varias veces al día.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();
@@ -40,9 +41,9 @@ test('a client without an area who already reached the limit cannot create a new
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Otro pedido más')
         ->set('description', 'Este pedido no debería poder crearse.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasErrors(['title']);
@@ -59,9 +60,9 @@ test('the blocking message for a client without an area names their own cap', fu
     $component = Livewire::test('tickets.create-ticket')
         ->set('title', 'Otro pedido más')
         ->set('description', 'Este pedido no debería poder crearse.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save');
 
     expect($component->errors()->first('title'))
@@ -79,9 +80,9 @@ test('resolving one of their own tickets frees up room for a client without an a
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Ahora sí puedo crear otro')
         ->set('description', 'Uno de mis tickets anteriores ya se resolvió.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();
@@ -100,9 +101,9 @@ test('resolved and cancelled tickets do not count toward the limit', function ()
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Puedo crear porque los finalizados no cuentan')
         ->set('description', 'Tengo muchos tickets finalizados pero solo 2 abiertos.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();
@@ -117,9 +118,9 @@ test('paused tickets still count toward the limit', function () {
     Livewire::test('tickets.create-ticket')
         ->set('title', 'No debería poder crear otro')
         ->set('description', 'Mis tickets pausados siguen contando para el límite.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasErrors(['title']);
@@ -135,9 +136,9 @@ test('the unclosed tickets of another client without an area do not count', func
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Los tickets ajenos no me bloquean')
         ->set('description', 'Sin área, cada cliente se mide solamente contra sus propios tickets.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -153,9 +154,9 @@ test('an admin can create tickets past the limit configured for clients', functi
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Pedido de admin sin límite')
         ->set('description', 'Los admins no están limitados por esta configuración.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();
@@ -199,9 +200,9 @@ test('lowering the limit does not affect existing tickets, only blocks new creat
     Livewire::test('tickets.create-ticket')
         ->set('title', 'No debería poder crear otro')
         ->set('description', 'El límite bajó por debajo de lo que ya tengo.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasErrors(['title']);

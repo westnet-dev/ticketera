@@ -1,10 +1,13 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
+use App\Models\TicketCategory;
 use App\Models\TicketImage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -18,11 +21,13 @@ new class extends Component
 
     public string $description = '';
 
-    public $priority;
+    public $importance;
 
     public $urgency;
 
     public $impact;
+
+    public $category_id = '';
 
     public array $imagesToRemove = [];
 
@@ -32,9 +37,10 @@ new class extends Component
     {
         $this->title = $this->ticket->title;
         $this->description = $this->ticket->description;
-        $this->priority = $this->ticket->priority;
-        $this->urgency = $this->ticket->urgency;
-        $this->impact = $this->ticket->impact;
+        $this->importance = $this->ticket->importance->value;
+        $this->urgency = $this->ticket->urgency->value;
+        $this->impact = $this->ticket->impact->value;
+        $this->category_id = $this->ticket->category_id ?? '';
     }
 
     public function save(): void
@@ -44,9 +50,10 @@ new class extends Component
         $validated = $this->validate([
             'title' => 'required|string|min:5|max:255',
             'description' => 'required|string|min:10',
-            'priority' => 'required|integer|min:1|max:10',
-            'urgency' => 'required|integer|min:1|max:10',
-            'impact' => 'required|integer|min:1|max:10',
+            'importance' => ['required', Rule::enum(Level::class)],
+            'urgency' => ['required', Rule::enum(Level::class)],
+            'impact' => ['required', Rule::enum(Level::class)],
+            'category_id' => 'nullable|integer|exists:ticket_categories,id',
             'newImages.*' => 'image|max:2048',
         ]);
 
@@ -62,9 +69,10 @@ new class extends Component
         DB::transaction(fn () => $this->ticket->update([
             'title' => $validated['title'],
             'description' => $validated['description'],
-            'priority' => $validated['priority'],
+            'importance' => $validated['importance'],
             'urgency' => $validated['urgency'],
             'impact' => $validated['impact'],
+            'category_id' => filled($validated['category_id']) ? (int) $validated['category_id'] : null,
             'triage_status' => TriageStatus::Pending,
         ]));
 
@@ -83,6 +91,16 @@ new class extends Component
 
         $this->reset(['imagesToRemove', 'newImages']);
     }
+
+    /**
+     * @return array{categories: \Illuminate\Support\Collection<int, TicketCategory>}
+     */
+    public function with(): array
+    {
+        return [
+            'categories' => TicketCategory::orderBy('name')->get(),
+        ];
+    }
 };
 ?>
 
@@ -100,11 +118,28 @@ new class extends Component
 
             <flux:textarea wire:model="description" :label="__('Descripción')" />
 
-            <flux:input wire:model="priority" type="number" min="1" max="10" label="{{ __('Prioridad (1-10)') }}" />
+            <x-tickets.level-select wire:model.live="importance" :label="__('Importancia')" />
 
-            <flux:input wire:model="urgency" type="number" min="1" max="10" label="{{ __('Urgencia (1-10)') }}" />
+            <x-tickets.level-select wire:model.live="urgency" :label="__('Urgencia')" />
 
-            <flux:input wire:model="impact" type="number" min="1" max="10" label="{{ __('Impacto (1-10)') }}" />
+            <x-tickets.level-select wire:model="impact" :label="__('Impacto')" />
+
+            <x-tickets.priority-preview :importance="$importance" :urgency="$urgency" />
+
+            @if ($categories->isNotEmpty())
+                <flux:field>
+                    <flux:label badge="{{ __('Opcional') }}">{{ __('Categoría') }}</flux:label>
+                    <flux:select wire:model="category_id">
+                        <flux:select.option value="">{{ __('Sin categoría') }}</flux:select.option>
+                        @foreach ($categories as $category)
+                            <flux:select.option :key="$category->id" value="{{ $category->id }}">
+                                {{ $category->name }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:error name="category_id" />
+                </flux:field>
+            @endif
 
             @if ($ticket->images->isNotEmpty())
                 <flux:field>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketImage;
@@ -16,9 +17,9 @@ test('a ticket created by a client starts pending triage', function () {
     Livewire::test('tickets.create-ticket')
         ->set('title', 'El servicio está totalmente caído')
         ->set('description', 'No hay conexión en toda la oficina desde hace una hora.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();
@@ -225,9 +226,9 @@ test('the creator of a rejected ticket can revise and resubmit it', function () 
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 7)
-        ->set('urgency', 6)
-        ->set('impact', 5)
+        ->set('importance', Level::High->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -247,9 +248,9 @@ test('the revise form disappears after a successful resubmission, preventing a d
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 7)
-        ->set('urgency', 6)
-        ->set('impact', 5)
+        ->set('importance', Level::High->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors()
         ->assertDontSee(__('Reenviar a triage'))
@@ -311,9 +312,9 @@ test('the creator of a rejected ticket can remove an existing image when resubmi
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('imagesToRemove', [$removedImage->id])
         ->call('save')
         ->assertHasNoErrors();
@@ -333,9 +334,9 @@ test('the creator of a rejected ticket can add a new image when resubmitting', f
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('newImages', [UploadedFile::fake()->image('nueva.jpg')])
         ->call('save')
         ->assertHasNoErrors();
@@ -355,9 +356,9 @@ test('resubmitting a ticket may leave it with zero images', function () {
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('imagesToRemove', [$image->id])
         ->call('save')
         ->assertHasNoErrors();
@@ -378,9 +379,9 @@ test('resubmitting a ticket cannot exceed 5 images in total', function () {
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('newImages', [UploadedFile::fake()->image('extra.jpg')])
         ->call('save')
         ->assertHasErrors(['newImages']);
@@ -402,9 +403,9 @@ test('removing an image id that belongs to another ticket does not delete it', f
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('imagesToRemove', [$foreignImage->id])
         ->call('save')
         ->assertHasNoErrors();

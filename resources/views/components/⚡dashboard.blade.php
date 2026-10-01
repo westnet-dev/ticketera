@@ -3,6 +3,8 @@
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 
 new class extends Component
@@ -16,9 +18,7 @@ new class extends Component
                     ->selectRaw('status, count(*) as total')
                     ->groupBy('status')
                     ->pluck('total', 'status'),
-                'avgPriority' => round(Ticket::query()->avg('priority') ?? 0, 1),
-                'avgUrgency' => round(Ticket::query()->avg('urgency') ?? 0, 1),
-                'avgImpact' => round(Ticket::query()->avg('impact') ?? 0, 1),
+                'ticketsByPriority' => $this->countByPriority(Ticket::query()),
                 'unassignedCount' => Ticket::approved()->unassigned()->count(),
                 'pendingTriageCount' => Ticket::query()->where('triage_status', TriageStatus::Pending)->count(),
                 'pendingValidationCount' => Ticket::pendingValidation()->count(),
@@ -36,14 +36,29 @@ new class extends Component
             'finishedCount' => (clone $myTickets)->finished()->count(),
             'pendingTriageCount' => (clone $myTickets)->where('triage_status', TriageStatus::Pending)->count(),
             'pendingValidationCount' => (clone $myTickets)->pendingValidation()->count(),
-            'avgPriority' => round((clone $myTickets)->avg('priority') ?? 0, 1),
-            'avgUrgency' => round((clone $myTickets)->avg('urgency') ?? 0, 1),
-            'avgImpact' => round((clone $myTickets)->avg('impact') ?? 0, 1),
+            'ticketsByPriority' => $this->countByPriority(clone $myTickets),
             'recentTickets' => (clone $myTickets)
                 ->orderByDesc('created_at')
                 ->limit(5)
                 ->get(),
         ];
+    }
+
+    /**
+     * Ticket count per priority level, keyed by the priority's value.
+     *
+     * @param  Builder<Ticket>  $query
+     * @return Collection<int, int>
+     */
+    private function countByPriority(Builder $query): Collection
+    {
+        return $query
+            ->toBase()
+            ->selectRaw('priority, count(*) as total')
+            ->groupBy('priority')
+            ->pluck('total', 'priority')
+            ->map(fn ($total) => (int) $total)
+            ->sortKeys();
     }
 };
 ?>
@@ -76,12 +91,8 @@ new class extends Component
                 </dl>
             </x-panel>
 
-            <x-panel :heading="__('Promedio de prioridad, urgencia e impacto')">
-                <dl class="flex flex-col gap-3 p-4">
-                    <x-meter :label="__('Prioridad')" :value="$avgPriority" :max="10" suffix="/ 10" />
-                    <x-meter :label="__('Urgencia')" :value="$avgUrgency" :max="10" suffix="/ 10" />
-                    <x-meter :label="__('Impacto')" :value="$avgImpact" :max="10" suffix="/ 10" />
-                </dl>
+            <x-panel :heading="__('Tickets por prioridad')">
+                <x-tickets.priority-distribution :counts="$ticketsByPriority" />
             </x-panel>
 
             <x-panel :heading="__('Usuarios')">
@@ -143,7 +154,7 @@ new class extends Component
                             <li class="flex items-center justify-between gap-3 px-4 py-3">
                                 <x-tickets.subject-cell :ticket="$ticket" class="min-w-0" />
                                 <div class="flex shrink-0 items-center gap-3">
-                                    <x-tickets.priority-indicator :ticket="$ticket" class="hidden sm:inline-flex" />
+                                    <x-tickets.priority-indicator :priority="$ticket->priority" :ticket="$ticket" class="hidden sm:inline-flex" />
                                     <flux:badge size="sm" :color="$ticket->statusColor()">
                                         {{ $ticket->statusLabel() }}
                                     </flux:badge>
@@ -154,12 +165,8 @@ new class extends Component
                 @endif
             </x-panel>
 
-            <x-panel :heading="__('Mi promedio de prioridad, urgencia e impacto')">
-                <dl class="flex flex-col gap-3 p-4">
-                    <x-meter :label="__('Prioridad')" :value="$avgPriority" :max="10" suffix="/ 10" />
-                    <x-meter :label="__('Urgencia')" :value="$avgUrgency" :max="10" suffix="/ 10" />
-                    <x-meter :label="__('Impacto')" :value="$avgImpact" :max="10" suffix="/ 10" />
-                </dl>
+            <x-panel :heading="__('Mis tickets por prioridad')">
+                <x-tickets.priority-distribution :counts="$ticketsByPriority" />
             </x-panel>
         </div>
 

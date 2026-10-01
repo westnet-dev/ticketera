@@ -56,7 +56,7 @@ new class extends Component
 
     public function sort(string $column): void
     {
-        if (! in_array($column, ['priority', 'urgency', 'impact', 'created_at'], true)) {
+        if (! in_array($column, ['priority', 'importance', 'urgency', 'impact', 'created_at'], true)) {
             return;
         }
 
@@ -72,13 +72,13 @@ new class extends Component
 
     public function with(): array
     {
-        $sortBy = in_array($this->sortBy, ['priority', 'urgency', 'impact', 'created_at'], true) ? $this->sortBy : 'created_at';
+        $sortBy = in_array($this->sortBy, ['priority', 'importance', 'urgency', 'impact', 'created_at'], true) ? $this->sortBy : 'created_at';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
         $query = Ticket::query()
             ->approved()
             ->where('status', '!=', 'draft')
-            ->with(['user', 'assignedTo']);
+            ->with(['user', 'assignedTo', 'category']);
 
         if ($this->statusFilter !== null) {
             $query->where('status', $this->statusFilter);
@@ -93,7 +93,11 @@ new class extends Component
         }
 
         $tickets = $query
-            ->orderBy($sortBy, $sortDirection)
+            ->when(
+                $sortBy === 'priority',
+                fn ($query) => $query->orderByPriority($sortDirection),
+                fn ($query) => $query->orderBy($sortBy, $sortDirection),
+            )
             ->paginate(10);
 
         $baseQuery = Ticket::query()->approved()->where('status', '!=', 'draft');
@@ -155,12 +159,7 @@ new class extends Component
                         <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
                             {{ __('Prioridad') }}
                         </flux:table.column>
-                        <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'urgency'" :direction="$sortDirection" wire:click="sort('urgency')">
-                            {{ __('Urgencia') }}
-                        </flux:table.column>
-                        <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'impact'" :direction="$sortDirection" wire:click="sort('impact')">
-                            {{ __('Impacto') }}
-                        </flux:table.column>
+                        <flux:table.column class="hidden md:table-cell">{{ __('Categoría') }}</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
                         <flux:table.column>{{ __('Asignado a') }}</flux:table.column>
                     </flux:table.row>
@@ -178,10 +177,11 @@ new class extends Component
                                 </flux:badge>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <x-tickets.priority-indicator :ticket="$ticket" />
+                                <x-tickets.priority-indicator :priority="$ticket->priority" variant="solid" :ticket="$ticket" />
                             </flux:table.cell>
-                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->urgency }}</flux:table.cell>
-                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->impact }}</flux:table.cell>
+                            <flux:table.cell class="hidden md:table-cell">
+                                <x-tickets.category-badge :category="$ticket->category" />
+                            </flux:table.cell>
                             <flux:table.cell class="hidden lg:table-cell">
                                 <x-user-cell :user="$ticket->user" />
                             </flux:table.cell>

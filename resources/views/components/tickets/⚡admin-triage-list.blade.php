@@ -63,7 +63,7 @@ new class extends Component
             'tickets' => Ticket::query()
                 ->where('triage_status', TriageStatus::Pending)
                 ->where('status', '!=', 'draft')
-                ->with('user')
+                ->with(['user', 'category'])
                 ->orderBy('created_at')
                 ->paginate(10),
         ];
@@ -82,6 +82,8 @@ new class extends Component
                         <flux:table.column class="w-24">{{ __('ID') }}</flux:table.column>
                         <flux:table.column>{{ __('Asunto') }}</flux:table.column>
                         <flux:table.column>{{ __('Prioridad') }}</flux:table.column>
+                        <flux:table.column class="hidden md:table-cell">{{ __('Categoría') }}</flux:table.column>
+                        <flux:table.column class="hidden lg:table-cell">{{ __('Importancia') }}</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">{{ __('Urgencia') }}</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">{{ __('Impacto') }}</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
@@ -96,10 +98,14 @@ new class extends Component
                                 <x-tickets.subject-cell :ticket="$ticket" />
                             </flux:table.cell>
                             <flux:table.cell>
-                                <x-tickets.priority-indicator :ticket="$ticket" />
+                                <x-tickets.priority-indicator :priority="$ticket->priority" :ticket="$ticket" />
                             </flux:table.cell>
-                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->urgency }}</flux:table.cell>
-                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->impact }}</flux:table.cell>
+                            <flux:table.cell class="hidden md:table-cell">
+                                <x-tickets.category-badge :category="$ticket->category" />
+                            </flux:table.cell>
+                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->importance->label() }}</flux:table.cell>
+                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->urgency->label() }}</flux:table.cell>
+                            <flux:table.cell class="hidden text-sm text-neutral-500 lg:table-cell dark:text-neutral-400">{{ $ticket->impact->label() }}</flux:table.cell>
                             <flux:table.cell class="hidden lg:table-cell">
                                 <x-user-cell :user="$ticket->user" />
                             </flux:table.cell>

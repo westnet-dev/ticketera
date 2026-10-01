@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\Level;
+use App\Enums\TicketPriority;
 use App\Enums\TriageStatus;
 use App\Enums\ValidationStatus;
 use Database\Factories\TicketFactory;
@@ -19,9 +21,12 @@ use Illuminate\Support\Carbon;
  * @property int|null $created_by
  * @property string $title
  * @property string $description
- * @property int $priority
- * @property int $urgency
- * @property int $impact
+ * @property Level $importance
+ * @property Level $urgency
+ * @property Level $impact
+ * @property TicketPriority $priority
+ * @property int|null $category_id
+ * @property TicketCategory|null $category
  * @property string $status
  * @property TriageStatus $triage_status
  * @property ValidationStatus $validation_status
@@ -31,7 +36,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['user_id', 'created_by', 'title', 'description', 'priority', 'urgency', 'impact', 'assigned_to', 'status', 'triage_status', 'validation_status', 'resolution_rating', 'validated_at'])]
+#[Fillable(['user_id', 'created_by', 'title', 'description', 'importance', 'urgency', 'impact', 'category_id', 'assigned_to', 'status', 'triage_status', 'validation_status', 'resolution_rating', 'validated_at'])]
 
 class Ticket extends Model
 {
@@ -49,10 +54,28 @@ class Ticket extends Model
     protected function casts(): array
     {
         return [
+            'importance' => Level::class,
+            'urgency' => Level::class,
+            'impact' => Level::class,
+            'priority' => TicketPriority::class,
             'triage_status' => TriageStatus::class,
             'validation_status' => ValidationStatus::class,
             'validated_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Priority is never picked by hand: it is read off the importance × urgency
+     * matrix on every save, so no form can forget it or override it.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Ticket $ticket): void {
+            $ticket->priority = TicketPriority::fromMatrix(
+                $ticket->importance ?? Level::Medium,
+                $ticket->urgency ?? Level::Medium,
+            );
+        });
     }
 
     public function user(): BelongsTo
@@ -66,6 +89,11 @@ class Ticket extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(TicketCategory::class, 'category_id');
     }
 
     public function images(): HasMany
@@ -159,9 +187,19 @@ class Ticket extends Model
         $query->whereNotIn('status', ['resolved', 'cancelled', 'draft']);
     }
 
-    protected function scopeByPriority($query, int $priority): void
+    protected function scopeByPriority($query, TicketPriority $priority): void
     {
         $query->where('priority', $priority);
+    }
+
+    /**
+     * Order by priority, breaking ties within a priority level by impact.
+     *
+     * @param  Builder  $query
+     */
+    protected function scopeOrderByPriority($query, string $direction = 'desc'): void
+    {
+        $query->orderBy('priority', $direction)->orderBy('impact', $direction);
     }
 
     protected function scopeUnassigned($query): void
@@ -220,25 +258,14 @@ class Ticket extends Model
         };
     }
 
-    /**
-     * Bucket the 1–10 priority score into the level shown in listings.
-     */
     public function priorityLabel(): string
     {
-        return match (true) {
-            $this->priority >= 7 => __('Alta'),
-            $this->priority >= 4 => __('Media'),
-            default => __('Baja'),
-        };
+        return $this->priority->label();
     }
 
     public function priorityColor(): string
     {
-        return match (true) {
-            $this->priority >= 7 => 'red',
-            $this->priority >= 4 => 'orange',
-            default => 'zinc',
-        };
+        return $this->priority->color();
     }
 
     public function isDraft(): bool

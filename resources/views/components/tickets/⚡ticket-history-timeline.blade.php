@@ -50,9 +50,11 @@ new class extends Component
             ->map(fn (string $field) => match ($field) {
                 'title' => __('Título'),
                 'description' => __('Descripción'),
+                'importance' => __('Importancia'),
                 'priority' => __('Prioridad'),
                 'urgency' => __('Urgencia'),
                 'impact' => __('Impacto'),
+                'category_id' => __('Categoría'),
                 'images' => __('Imágenes'),
                 default => $field,
             })

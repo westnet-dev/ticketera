@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
@@ -31,9 +32,9 @@ function attemptTicket(string $title, string $description)
     return Livewire::test('tickets.create-ticket')
         ->set('title', $title)
         ->set('description', $description)
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save');
 }
 
@@ -192,9 +193,9 @@ test('an admin can file on behalf of a client whose area reached the cap', funct
         ->set('author_id', $client->id)
         ->set('title', 'Pedido transmitido de palabra')
         ->set('description', 'El área está en el tope pero el alta la ejecuta un admin, que está exento.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 

@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\Role;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
+use App\Models\TicketCategory;
 use App\Models\TicketImage;
 use App\Models\TicketSetting;
 use App\Models\User;
@@ -26,9 +28,10 @@ new class extends Component
 
     public $title;
     public $description;
-    public $priority;
-    public $urgency;
-    public $impact;
+    public $importance = Level::Medium->value;
+    public $urgency = Level::Medium->value;
+    public $impact = Level::Medium->value;
+    public $category_id = '';
     public $images = [];
     public $author_id = '';
 
@@ -39,9 +42,10 @@ new class extends Component
         if ($draft) {
             $this->title = $draft->title;
             $this->description = $draft->description;
-            $this->priority = $draft->priority;
-            $this->urgency = $draft->urgency;
-            $this->impact = $draft->impact;
+            $this->importance = $draft->importance->value;
+            $this->urgency = $draft->urgency->value;
+            $this->impact = $draft->impact->value;
+            $this->category_id = $draft->category_id ?? '';
         }
     }
 
@@ -57,6 +61,14 @@ new class extends Component
         $authorId = (int) $this->author_id;
 
         return $authorId === auth()->id() ? null : $authorId;
+    }
+
+    /**
+     * The picked category, with the select's empty "Sin categoría" option mapped to null.
+     */
+    private function resolvedCategoryId(): ?int
+    {
+        return $this->category_id === null || $this->category_id === '' ? null : (int) $this->category_id;
     }
 
     /**
@@ -111,9 +123,10 @@ new class extends Component
             'author_id' => ['nullable', Rule::exists('users', 'id')->where('role', Role::Client->value)->whereNull('deleted_at')],
             'title' => 'required|string|min:5|max:255',
             'description' => 'required|string|min:10',
-            'priority' => 'required|integer|min:1|max:10',
-            'urgency' => 'required|integer|min:1|max:10',
-            'impact' => 'required|integer|min:1|max:10',
+            'importance' => ['required', Rule::enum(Level::class)],
+            'urgency' => ['required', Rule::enum(Level::class)],
+            'impact' => ['required', Rule::enum(Level::class)],
+            'category_id' => 'nullable|integer|exists:ticket_categories,id',
             ...$this->imageRules(),
         ], $this->imageMessages());
     }
@@ -141,15 +154,16 @@ new class extends Component
             'created_by' => auth()->id(),
             'title' => $this->title,
             'description' => $this->description,
-            'priority' => $this->priority,
-            'urgency' => $this->urgency,
-            'impact' => $this->impact,
+            'importance' => (int) $this->importance,
+            'urgency' => (int) $this->urgency,
+            'impact' => (int) $this->impact,
+            'category_id' => $this->resolvedCategoryId(),
             'triage_status' => auth()->user()->isAdmin() ? TriageStatus::Approved : TriageStatus::Pending,
         ]);
 
         $this->storeUploadedImages($ticket);
 
-        $this->reset(['title', 'description', 'priority', 'urgency', 'impact', 'images', 'author_id']);
+        $this->reset(['title', 'description', 'importance', 'urgency', 'impact', 'category_id', 'images', 'author_id']);
 
         session()->flash('message', $authorId !== null
             ? __('Ticket creado a nombre de :name.', ['name' => $ticket->user->name])
@@ -166,15 +180,20 @@ new class extends Component
 
         $this->validate([
             'title' => 'required|string|min:5|max:255',
+            'importance' => ['nullable', Rule::enum(Level::class)],
+            'urgency' => ['nullable', Rule::enum(Level::class)],
+            'impact' => ['nullable', Rule::enum(Level::class)],
+            'category_id' => 'nullable|integer|exists:ticket_categories,id',
             ...$this->imageRules(),
         ], $this->imageMessages());
 
         $attributes = [
             'title' => $this->title,
             'description' => $this->description ?: null,
-            'priority' => $this->priority !== null && $this->priority !== '' ? (int) $this->priority : 5,
-            'urgency' => $this->urgency !== null && $this->urgency !== '' ? (int) $this->urgency : 5,
-            'impact' => $this->impact !== null && $this->impact !== '' ? (int) $this->impact : 5,
+            'importance' => filled($this->importance) ? (int) $this->importance : Level::Medium,
+            'urgency' => filled($this->urgency) ? (int) $this->urgency : Level::Medium,
+            'impact' => filled($this->impact) ? (int) $this->impact : Level::Medium,
+            'category_id' => $this->resolvedCategoryId(),
         ];
 
         if ($this->draft) {
@@ -217,9 +236,10 @@ new class extends Component
         DB::transaction(fn () => $this->draft->update([
             'title' => $this->title,
             'description' => $this->description,
-            'priority' => $this->priority,
-            'urgency' => $this->urgency,
-            'impact' => $this->impact,
+            'importance' => (int) $this->importance,
+            'urgency' => (int) $this->urgency,
+            'impact' => (int) $this->impact,
+            'category_id' => $this->resolvedCategoryId(),
             'status' => 'open',
             'triage_status' => auth()->user()->isAdmin() ? TriageStatus::Approved : TriageStatus::Pending,
         ]));
@@ -239,11 +259,12 @@ new class extends Component
     }
 
     /**
-     * @return array{clients: \Illuminate\Support\Collection<int, User>}
+     * @return array{clients: \Illuminate\Support\Collection<int, User>, categories: \Illuminate\Support\Collection<int, TicketCategory>}
      */
     public function with(): array
     {
         return [
+            'categories' => TicketCategory::orderBy('name')->get(),
             'clients' => auth()->user()->isAdmin()
                 ? User::query()->role(Role::Client->value)->orderBy('name')->get()
                 : collect(),
@@ -305,6 +326,22 @@ new class extends Component
                 <flux:error name="description" />
             </flux:field>
 
+            @if ($categories->isNotEmpty())
+                <flux:field>
+                    <flux:label badge="{{ __('Opcional') }}">{{ __('Categoría') }}</flux:label>
+                    <flux:description>{{ __('Elegí el tipo de pedido que mejor describe tu ticket.') }}</flux:description>
+                    <flux:select wire:model="category_id">
+                        <flux:select.option value="">{{ __('Sin categoría') }}</flux:select.option>
+                        @foreach ($categories as $category)
+                            <flux:select.option :key="$category->id" value="{{ $category->id }}">
+                                {{ $category->name }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:error name="category_id" />
+                </flux:field>
+            @endif
+
             <flux:field>
                 <flux:label badge="{{ __('Opcional') }}">Imágenes</flux:label>
                 <flux:description>{{ __('Podés adjuntar hasta 5 imágenes de hasta 2 MB cada una.') }}</flux:description>
@@ -320,26 +357,25 @@ new class extends Component
             </flux:field>
         </div>
 
-        <flux:field>
-            <flux:label>Prioridad (1-10)</flux:label>
-            <flux:description>Indica respecto a tus pedudos que importancia tienen.</flux:description>
-            <flux:input wire:model="priority" type="number" min="1" max="10" />
-            <flux:error name="priority" />
-        </flux:field>
+        <x-tickets.level-select
+            wire:model.live="importance"
+            :label="__('Importancia')"
+            :description="__('Indicá qué tan importante es este pedido respecto de tus otros pedidos.')"
+        />
 
-        <flux:field>
-            <flux:label>Urgencia (1-10)</flux:label>
-            <flux:description>Indica qué tan rápido necesitas el caso resuelto</flux:description>
-            <flux:input wire:model="urgency" type="number" min="1" max="10" />
-            <flux:error name="urgency" />
-        </flux:field>
+        <x-tickets.level-select
+            wire:model.live="urgency"
+            :label="__('Urgencia')"
+            :description="__('Indicá qué tan rápido necesitás el caso resuelto en relación a tu trabajo diario.')"
+        />
 
-        <flux:field>
-            <flux:label>Impacto (1-10)</flux:label>
-            <flux:description>Indica que tanto afecta el caso a los clientes o negocio.</flux:description>
-            <flux:input wire:model="impact" type="number" min="1" max="10" />
-            <flux:error name="impact" />
-        </flux:field>
+        <x-tickets.level-select
+            wire:model="impact"
+            :label="__('Impacto')"
+            :description="__('Indicá cuánto afecta a los usuarios, donde baja es a pocos usuarios y alta es a muchos usuarios.')"
+        />
+
+        <x-tickets.priority-preview :importance="$importance" :urgency="$urgency" class="md:col-span-3" />
 
         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end md:col-span-3">
             @if ($draft)

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketHistory;
@@ -87,9 +88,9 @@ test('submitting a draft ticket records a status change', function () {
     Livewire::test('tickets.create-ticket', ['draft' => $draft])
         ->set('title', 'Falla en el servicio de internet')
         ->set('description', 'No hay conexión desde esta mañana en toda la oficina.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('submit');
 
     $entry = TicketHistory::where('ticket_id', $draft->id)->where('field', 'status')->sole();
@@ -108,9 +109,9 @@ test('resubmitting a rejected ticket records a triage status change', function (
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save');
 
     $entry = TicketHistory::where('ticket_id', $ticket->id)->where('field', 'triage_status')->sole();
@@ -129,9 +130,9 @@ test('updating unwatched ticket fields does not record history', function () {
     Livewire::test('tickets.revise-ticket', ['ticket' => $ticket])
         ->set('title', 'Título corregido y más descriptivo')
         ->set('description', 'Descripción corregida con más detalle sobre el problema.')
-        ->set('priority', 9)
-        ->set('urgency', 8)
-        ->set('impact', 7)
+        ->set('importance', Level::High->value)
+        ->set('urgency', Level::High->value)
+        ->set('impact', Level::High->value)
         ->call('save');
 
     // The revise flow always moves triage_status rejected -> pending, so that one entry is expected;

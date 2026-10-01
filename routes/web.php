@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AreaController as AdminAreaController;
+use App\Http\Controllers\Admin\TicketCategoryController as AdminTicketCategoryController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\TriageController as AdminTriageController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -39,6 +40,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/triage', [AdminTriageController::class, 'index'])->name('admin.triage');
     Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users');
     Route::get('/areas', [AdminAreaController::class, 'index'])->name('admin.areas');
+    Route::get('/categories', [AdminTicketCategoryController::class, 'index'])->name('admin.categories');
 });
 
 require __DIR__.'/settings.php';

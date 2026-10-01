@@ -39,7 +39,7 @@ new class extends Component
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
         $query = Ticket::query()
-            ->with(['user', 'assignedTo'])
+            ->with(['user', 'assignedTo', 'category'])
             ->listedFor(auth()->user());
 
         if ($this->statusFilter === 'finished') {
@@ -54,7 +54,11 @@ new class extends Component
 
         return [
             'tickets' => $query
-                ->orderBy($sortBy, $sortDirection)
+                ->when(
+                    $sortBy === 'priority',
+                    fn ($query) => $query->orderByPriority($sortDirection),
+                    fn ($query) => $query->orderBy($sortBy, $sortDirection),
+                )
                 ->paginate(10),
             'sortBy' => $sortBy,
             'sortDirection' => $sortDirection,
@@ -86,6 +90,7 @@ new class extends Component
                         <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
                             {{ __('Prioridad') }}
                         </flux:table.column>
+                        <flux:table.column class="hidden md:table-cell">{{ __('Categoría') }}</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
                         <flux:table.column class="hidden lg:table-cell" sortable :sorted="$sortBy === 'updated_at'" :direction="$sortDirection" wire:click="sort('updated_at')">
                             {{ __('Última actualización') }}
@@ -105,7 +110,10 @@ new class extends Component
                                 </flux:badge>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <x-tickets.priority-indicator :ticket="$ticket" />
+                                <x-tickets.priority-indicator :priority="$ticket->priority" :ticket="$ticket" />
+                            </flux:table.cell>
+                            <flux:table.cell class="hidden md:table-cell">
+                                <x-tickets.category-badge :category="$ticket->category" />
                             </flux:table.cell>
                             <flux:table.cell class="hidden lg:table-cell">
                                 <x-user-cell :user="$ticket->user" />

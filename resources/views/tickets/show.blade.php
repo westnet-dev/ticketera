@@ -7,7 +7,7 @@
                         <span class="inline-flex flex-wrap items-center gap-2">
                             <span class="text-xs text-neutral-400">#TK-{{ $ticket->id }}</span>
                             <flux:badge size="sm" :color="$ticket->statusColor()">{{ $ticket->statusLabel() }}</flux:badge>
-                            <x-tickets.priority-indicator :ticket="$ticket" />
+                            <x-tickets.priority-indicator :priority="$ticket->priority" :ticket="$ticket" />
                             @unless ($ticket->isTriageApproved())
                                 <flux:badge size="sm" :color="$ticket->triageStatusColor()">{{ $ticket->triageStatusLabel() }}</flux:badge>
                             @endunless
@@ -114,6 +114,16 @@
                         </dd>
                     </div>
 
+                    <div>
+                        <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Prioridad') }}</dt>
+                        <dd class="mt-1"><x-tickets.priority-indicator :priority="$ticket->priority" /></dd>
+                    </div>
+
+                    <div>
+                        <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Categoría') }}</dt>
+                        <dd class="mt-1"><x-tickets.category-badge :category="$ticket->category" /></dd>
+                    </div>
+
                     @if ($ticket->validationWasRequested())
                         <div>
                             <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Validación') }}</dt>
@@ -140,10 +150,10 @@
                     @endif
 
                     <div class="grid grid-cols-3 gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-700">
-                        @foreach ([__('Prioridad') => $ticket->priority, __('Urgencia') => $ticket->urgency, __('Impacto') => $ticket->impact] as $label => $score)
+                        @foreach ([__('Importancia') => $ticket->importance, __('Urgencia') => $ticket->urgency, __('Impacto') => $ticket->impact] as $label => $level)
                             <div>
                                 <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ $label }}</dt>
-                                <dd class="mt-0.5 font-semibold">{{ $score }}<span class="text-xs font-normal text-neutral-400">/10</span></dd>
+                                <dd class="mt-0.5 font-semibold">{{ $level->label() }}</dd>
                             </div>
                         @endforeach
                     </div>

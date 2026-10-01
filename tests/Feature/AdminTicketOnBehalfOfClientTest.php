@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
@@ -22,9 +23,9 @@ test('an admin can file a ticket on behalf of an existing client', function () {
         ->set('author_id', $client->id)
         ->set('title', 'Necesito un reporte de consumo mensual')
         ->set('description', 'Pedido verbal: un reporte mensual de consumo por cliente.')
-        ->set('priority', 8)
-        ->set('urgency', 6)
-        ->set('impact', 7)
+        ->set('importance', Level::High->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::High->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -67,9 +68,9 @@ test('images are optional when an admin files on behalf of a client', function (
         ->set('author_id', $client->id)
         ->set('title', 'Pedido transmitido de palabra')
         ->set('description', 'No hay captura porque el pedido llegó en una reunión.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -84,9 +85,9 @@ test('a client can file their own ticket without attaching an image', function (
     Livewire::test('tickets.create-ticket')
         ->set('title', 'No adjunto ninguna imagen')
         ->set('description', 'Este ticket debería poder crearse sin evidencia adjunta.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -101,9 +102,9 @@ test('an admin can file their own ticket without attaching an image', function (
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Pedido propio sin evidencia')
         ->set('description', 'Sin autor seleccionado la imagen tampoco es obligatoria.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -120,9 +121,9 @@ test('a client cannot file a ticket authored by someone else', function () {
         ->set('author_id', $other->id)
         ->set('title', 'Intento cargar un ticket ajeno')
         ->set('description', 'Un cliente no debería poder elegir el autor del ticket.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertForbidden();
@@ -165,9 +166,9 @@ test('an admin cannot pick another admin as the author', function () {
         ->set('author_id', $otherAdmin->id)
         ->set('title', 'Autor con rol equivocado')
         ->set('description', 'El autor tiene que ser un cliente, no otro admin.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasErrors(['author_id']);
 
@@ -183,9 +184,9 @@ test('an admin cannot pick a non-existent user as the author', function () {
         ->set('author_id', 99999)
         ->set('title', 'Autor inexistente')
         ->set('description', 'El autor indicado no corresponde a ningún usuario.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasErrors(['author_id']);
 
@@ -203,9 +204,9 @@ test('an admin cannot pick a soft-deleted client as the author', function () {
         ->set('author_id', $client->id)
         ->set('title', 'Autor dado de baja')
         ->set('description', 'El cliente elegido ya no está activo en el sistema.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasErrors(['author_id']);
 
@@ -226,9 +227,9 @@ test('an admin can file for a client who already reached their ticket limit', fu
         ->set('author_id', $client->id)
         ->set('title', 'Pedido cargado por encima del tope')
         ->set('description', 'El tope aplica a quien crea el ticket, no a su autor.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -249,9 +250,9 @@ test('a ticket filed on behalf counts toward the client limit afterwards', funct
         ->set('author_id', $client->id)
         ->set('title', 'El pedido que completa el tope del cliente')
         ->set('description', 'Con este ticket el cliente queda en su máximo permitido.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -260,9 +261,9 @@ test('a ticket filed on behalf counts toward the client limit afterwards', funct
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Ahora ya no puedo crear otro')
         ->set('description', 'El ticket que me cargaron cuenta para mi tope.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasErrors(['title']);
@@ -327,9 +328,9 @@ test('an admin filing their own ticket records themselves as author and creator'
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Pedido propio del admin')
         ->set('description', 'Sin autor seleccionado el ticket sigue siendo del admin.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();
@@ -350,9 +351,9 @@ test('a client filing their own ticket still goes through triage', function () {
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Pedido propio del cliente')
         ->set('description', 'Este ticket sigue entrando a la cola de triage.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();

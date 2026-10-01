@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\User;
@@ -24,9 +25,9 @@ test('a ticket created by an admin is approved without going through triage', fu
     Livewire::test('tickets.create-ticket')
         ->set('title', 'Necesito acceso a la VPN')
         ->set('description', 'No puedo conectarme a la VPN desde ayer a la tarde.')
-        ->set('priority', 5)
-        ->set('urgency', 5)
-        ->set('impact', 5)
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
         ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
         ->call('save')
         ->assertHasNoErrors();

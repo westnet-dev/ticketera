@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\Level;
+use App\Enums\TicketPriority;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketHistory;
@@ -15,16 +17,16 @@ beforeEach(function () {
 });
 
 /**
- * @return array{title: string, description: string, priority: int, urgency: int, impact: int}
+ * @return array{title: string, description: string, importance: int, urgency: int, impact: int}
  */
 function validTicketEdit(): array
 {
     return [
         'title' => 'Título editado y más descriptivo',
         'description' => 'Descripción editada con más detalle sobre el problema.',
-        'priority' => 8,
-        'urgency' => 7,
-        'impact' => 6,
+        'importance' => Level::High->value,
+        'urgency' => Level::High->value,
+        'impact' => Level::Medium->value,
     ];
 }
 
@@ -59,7 +61,8 @@ test('an admin can edit an approved ticket from a client without changing its st
     $ticket->refresh();
 
     expect($ticket->title)->toBe('Título editado y más descriptivo');
-    expect($ticket->priority)->toBe(8);
+    expect($ticket->importance)->toBe(Level::High);
+    expect($ticket->priority)->toBe(TicketPriority::Critical);
     expect($ticket->triage_status)->toBe(TriageStatus::Approved);
     expect($ticket->status)->toBe('in_progress');
     expect($ticket->user_id)->toBe($client->id);
@@ -165,9 +168,9 @@ test('edits are validated with the same rules as ticket creation', function (str
 })->with([
     'short title' => ['title', 'Hola'],
     'short description' => ['description', 'Corta'],
-    'priority out of range' => ['priority', 11],
+    'importance out of range' => ['importance', 4],
     'urgency out of range' => ['urgency', 0],
-    'impact not numeric' => ['impact', 'mucho'],
+    'impact not a level' => ['impact', 'mucho'],
 ]);
 
 test('an edit can remove an attached image, deleting its record and file', function () {
@@ -230,14 +233,14 @@ test('an edit cannot remove an image that belongs to another ticket', function (
 
 test('an edit that changes details records a single history entry naming the changed fields', function () {
     $admin = User::factory()->admin()->create();
-    $ticket = Ticket::factory()->create(['urgency' => 2]);
+    $ticket = Ticket::factory()->create(['urgency' => Level::Low]);
 
     $this->actingAs($admin);
 
     editTicket($ticket, [
         'description' => $ticket->description,
-        'priority' => $ticket->priority,
-        'impact' => $ticket->impact,
+        'importance' => $ticket->importance->value,
+        'impact' => $ticket->impact->value,
     ])->assertHasNoErrors();
 
     $entry = TicketHistory::where('ticket_id', $ticket->id)->sole();
