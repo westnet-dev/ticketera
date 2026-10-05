@@ -12,23 +12,6 @@ beforeEach(function () {
     config(['services.linear.key' => 'lin_api_test_key']);
 });
 
-/**
- * A GraphQL issue node as Linear returns it for LinearClient::ISSUE_FIELDS.
- *
- * @return array<string, mixed>
- */
-function linearIssueNode(string $identifier = 'GES-911', ?string $assignee = 'Ana Pérez'): array
-{
-    return [
-        'id' => 'uuid-'.strtolower($identifier),
-        'identifier' => $identifier,
-        'title' => 'Vincular tickets con Linear',
-        'url' => "https://linear.app/acme/issue/{$identifier}/vincular-tickets-con-linear",
-        'state' => ['name' => 'In Progress', 'type' => 'started'],
-        'assignee' => $assignee === null ? null : ['name' => $assignee],
-    ];
-}
-
 test('it finds an issue by identifier, authenticating with the raw API key', function () {
     Http::fake(['api.linear.app/*' => Http::response(['data' => ['issues' => ['nodes' => [linearIssueNode()]]]])]);
 
@@ -78,10 +61,10 @@ test('it reports Linear as unavailable when the request fails', function (Closur
 
     app(LinearClient::class)->findByIdentifier('GES-911');
 })->with([
-    'server error' => fn () => fn () => Http::response('Bad gateway', 502),
-    'rejected key' => fn () => fn () => Http::response(['errors' => [['message' => 'Authentication required']]], 400),
-    'graphql error' => fn () => fn () => Http::response(['errors' => [['message' => 'Syntax error']], 'data' => null]),
-    'connection failure' => fn () => fn () => Http::failedConnection(),
+    'server error' => fn () => Http::response('Bad gateway', 502),
+    'rejected key' => fn () => Http::response(['errors' => [['message' => 'Authentication required']]], 400),
+    'graphql error' => fn () => Http::response(['errors' => [['message' => 'Syntax error']], 'data' => null]),
+    'connection failure' => fn () => Http::failedConnection(),
 ])->throws(LinearUnavailableException::class);
 
 test('without an API key it never calls Linear', function () {

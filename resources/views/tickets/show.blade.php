@@ -215,6 +215,15 @@
                 @endcan
             </x-panel>
 
+            @if ($linearEnabled)
+                @can('manageLinearLinks', $ticket)
+                    <x-panel :heading="__('Linear')" class="order-2">
+                        {{-- Lazy, so a slow Linear never holds up the ticket page. --}}
+                        <livewire:tickets.linear-links :ticket="$ticket" lazy />
+                    </x-panel>
+                @endcan
+            @endif
+
             <x-panel class="order-4 p-4">
                 <livewire:tickets.ticket-history-timeline :ticket="$ticket" />
             </x-panel>

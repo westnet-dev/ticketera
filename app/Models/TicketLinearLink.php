@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\LinearLinkSource;
+use App\Services\Linear\LinearIssue;
 use Database\Factories\TicketLinearLinkFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -62,6 +63,14 @@ class TicketLinearLink extends Model
     public function linkedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'linked_by');
+    }
+
+    /**
+     * Overwrite the cached fields with the issue's current state in Linear.
+     */
+    public function refreshFrom(LinearIssue $issue): void
+    {
+        $this->update([...$issue->toLinkAttributes(), 'synced_at' => now()]);
     }
 
     public function wasDetectedFromLinear(): bool

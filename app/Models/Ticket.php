@@ -249,18 +249,26 @@ class Ticket extends Model
      */
     public function linkLinearIssue(LinearIssue $issue, LinearLinkSource $source, ?int $linkedBy = null): TicketLinearLink
     {
-        $cached = [...$issue->toLinkAttributes(), 'synced_at' => now()];
-
         $link = $this->linearLinks()->createOrFirst(
             ['linear_issue_id' => $issue->id],
-            [...$cached, 'source' => $source, 'linked_by' => $linkedBy],
+            [...$issue->toLinkAttributes(), 'synced_at' => now(), 'source' => $source, 'linked_by' => $linkedBy],
         );
 
         if (! $link->wasRecentlyCreated) {
-            $link->update($cached);
+            $link->refreshFrom($issue);
         }
 
         return $link;
+    }
+
+    /**
+     * The ticket's URL built from APP_URL, so it is the same whichever host the page was opened on.
+     *
+     * Linear issues reference a ticket by attaching exactly this URL.
+     */
+    public function canonicalUrl(): string
+    {
+        return rtrim((string) config('app.url'), '/').route('ticket.show', $this, absolute: false);
     }
 
     /**

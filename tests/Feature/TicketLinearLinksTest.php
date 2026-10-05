@@ -5,19 +5,15 @@ use App\Models\Ticket;
 use App\Models\TicketLinearLink;
 use App\Models\User;
 use App\Services\Linear\LinearIssue;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
 
-function linearIssue(string $identifier = 'GES-911', string $stateName = 'In Progress', string $stateType = 'started'): LinearIssue
-{
-    return new LinearIssue(
-        id: 'uuid-'.strtolower($identifier),
-        identifier: $identifier,
-        title: 'Vincular tickets con Linear',
-        url: "https://linear.app/acme/issue/{$identifier}",
-        stateName: $stateName,
-        stateType: $stateType,
-        assigneeName: 'Ana Pérez',
-    );
-}
+beforeEach(function () {
+    Http::preventStrayRequests();
+
+    config(['services.linear.key' => 'lin_api_test_key']);
+});
 
 test('only admins can manage the linear links of a submitted ticket', function () {
     $admin = User::factory()->admin()->create();
@@ -34,7 +30,7 @@ test('linking a linear issue stores its cached fields and who linked it', functi
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->create(['status' => 'open']);
 
-    $link = $ticket->linkLinearIssue(linearIssue(), LinearLinkSource::Manual, $admin->id);
+    $link = $ticket->linkLinearIssue(LinearIssue::fromNode(linearIssueNode()), LinearLinkSource::Manual, $admin->id);
 
     expect($link->fresh())
         ->identifier->toBe('GES-911')
@@ -47,14 +43,172 @@ test('linking a linear issue stores its cached fields and who linked it', functi
 test('linking the same issue again refreshes it without changing how it was linked', function () {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->create(['status' => 'open']);
-    $ticket->linkLinearIssue(linearIssue(), LinearLinkSource::Manual, $admin->id);
+    $ticket->linkLinearIssue(LinearIssue::fromNode(linearIssueNode()), LinearLinkSource::Manual, $admin->id);
 
-    $ticket->linkLinearIssue(linearIssue(stateName: 'Done', stateType: 'completed'), LinearLinkSource::Attachment);
+    $ticket->linkLinearIssue(LinearIssue::fromNode(linearIssueNode(stateName: 'Done', stateType: 'completed')), LinearLinkSource::Attachment);
 
-    $link = TicketLinearLink::sole();
-
-    expect($link)
+    expect(TicketLinearLink::sole())
         ->state_name->toBe('Done')
         ->source->toBe(LinearLinkSource::Manual)
         ->linked_by->toBe($admin->id);
+});
+
+test('the ticket page shows the linear panel to admins without calling linear while it loads', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs($admin)
+        ->get(route('ticket.show', $ticket))
+        ->assertOk()
+        ->assertSee(__('Consultando Linear...'));
+
+    Http::assertNothingSent();
+});
+
+test('the ticket page hides the linear panel from clients and when no key is configured', function () {
+    $admin = User::factory()->admin()->create();
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->for($client)->create(['status' => 'open']);
+
+    $this->actingAs($client)
+        ->get(route('ticket.show', $ticket))
+        ->assertOk()
+        ->assertDontSee(__('Consultando Linear...'));
+
+    config(['services.linear.key' => null]);
+
+    $this->actingAs($admin)
+        ->get(route('ticket.show', $ticket))
+        ->assertOk()
+        ->assertDontSee(__('Consultando Linear...'));
+});
+
+test('a client cannot load the linear panel', function () {
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->for($client)->create(['status' => 'open']);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->assertForbidden();
+});
+
+test('an admin links an issue by its identifier or its url', function (string $reference) {
+    fakeLinear(issueNodes: [linearIssueNode()]);
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->set('reference', $reference)
+        ->call('link')
+        ->assertHasNoErrors()
+        ->assertSet('reference', '')
+        ->assertSee('GES-911');
+
+    expect($ticket->linearLinks()->sole())
+        ->source->toBe(LinearLinkSource::Manual)
+        ->linked_by->toBe($admin->id);
+})->with([
+    'identifier' => 'GES-911',
+    'url' => 'https://linear.app/acme/issue/GES-911/vincular-tickets-con-linear',
+]);
+
+test('linking fails with a message when the reference is not an issue, does not exist or linear is down', function (string $reference, Closure $fake) {
+    $fake();
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->set('reference', $reference)
+        ->call('link')
+        ->assertHasErrors('reference');
+
+    expect($ticket->linearLinks()->exists())->toBeFalse();
+})->with([
+    'free text' => ['el ticket de facturación', fn () => fakeLinear()],
+    'unknown issue' => ['GES-99999', fn () => fakeLinear()],
+    'linear down' => ['GES-911', fn () => Http::fake(['api.linear.app/*' => Http::response('Bad gateway', 502)])],
+]);
+
+test('opening the ticket links the issues that attach its url in linear', function () {
+    fakeLinear(attachedNodes: [linearIssueNode('GES-120')]);
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->assertSee('GES-120')
+        ->assertSee(__('Vinculado desde Linear'));
+
+    expect($ticket->linearLinks()->sole()->source)->toBe(LinearLinkSource::Attachment);
+
+    Http::assertSent(fn (Request $request) => ($request['variables']['url'] ?? null) === $ticket->canonicalUrl());
+});
+
+test('opening the ticket refreshes the cached state of its links', function () {
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    $link = TicketLinearLink::factory()->for($ticket)->create([
+        'linear_issue_id' => 'uuid-ges-911',
+        'identifier' => 'GES-911',
+        'state_name' => 'Todo',
+        'state_type' => 'unstarted',
+    ]);
+    fakeLinear(issueNodes: [linearIssueNode(stateName: 'Done', stateType: 'completed')]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
+    expect($link->fresh())
+        ->state_name->toBe('Done')
+        ->state_type->toBe('completed');
+});
+
+test('reopening the ticket within the sync interval does not call linear again', function () {
+    fakeLinear();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
+    Http::assertSentCount(1);
+});
+
+test('when linear is down the panel keeps the last known state and retries on the next view', function () {
+    Http::fake(['api.linear.app/*' => Http::failedConnection()]);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    TicketLinearLink::factory()->for($ticket)->create(['identifier' => 'GES-911']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->assertSet('linearUnavailable', true)
+        ->assertSee(__('No se pudo consultar Linear. Se muestra el último estado conocido.'))
+        ->assertSee('GES-911');
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
+    Http::assertSentCount(2);
+});
+
+test('an admin can remove a manual link but not one detected from linear', function () {
+    fakeLinear();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    $manual = TicketLinearLink::factory()->for($ticket)->create();
+    $detected = TicketLinearLink::factory()->detected()->for($ticket)->create();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->call('unlink', $manual->id)
+        ->call('unlink', $detected->id);
+
+    expect($ticket->linearLinks()->pluck('id')->all())->toBe([$detected->id]);
 });
