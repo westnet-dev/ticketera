@@ -25,6 +25,33 @@ new class extends Component
     #[Url]
     public ?string $assignedFilter = null;
 
+    #[Url(except: '')]
+    public string $search = '';
+
+    #[Url(except: '')]
+    public string $clientFilter = '';
+
+    #[Url(except: '')]
+    public string $assignedToFilter = '';
+
+    /**
+     * The columns the listing can be sorted by, which is also what reaches the SQL.
+     *
+     * @var array<int, string>
+     */
+    private const SORTABLE = ['id', 'status', 'priority', 'category', 'created_at'];
+
+    /**
+     * Filters are bound with wire:model, so they land here instead of in a
+     * method where resetPage() could be called by hand.
+     */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['search', 'clientFilter', 'assignedToFilter'], true)) {
+            $this->resetPage();
+        }
+    }
+
     public function filterByAssigned(?string $value): void
     {
         if ($value !== null && $value !== 'unassigned') {
@@ -56,7 +83,7 @@ new class extends Component
 
     public function sort(string $column): void
     {
-        if (! in_array($column, ['priority', 'importance', 'urgency', 'impact', 'created_at'], true)) {
+        if (! in_array($column, self::SORTABLE, true)) {
             return;
         }
 
@@ -72,7 +99,7 @@ new class extends Component
 
     public function with(): array
     {
-        $sortBy = in_array($this->sortBy, ['priority', 'importance', 'urgency', 'impact', 'created_at'], true) ? $this->sortBy : 'created_at';
+        $sortBy = in_array($this->sortBy, self::SORTABLE, true) ? $this->sortBy : 'created_at';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
         $query = Ticket::query()
@@ -92,13 +119,18 @@ new class extends Component
             $query->unassigned();
         }
 
-        $tickets = $query
-            ->when(
-                $sortBy === 'priority',
-                fn ($query) => $query->orderByPriority($sortDirection),
-                fn ($query) => $query->orderBy($sortBy, $sortDirection),
-            )
-            ->paginate(10);
+        $query->search($this->search)
+            ->forClient($this->clientFilter)
+            ->assignedToUser($this->assignedToFilter);
+
+        $sorted = match ($sortBy) {
+            'priority' => $query->orderByPriority($sortDirection),
+            'status' => $query->orderByStatusFlow($sortDirection),
+            'category' => $query->orderByCategoryName($sortDirection),
+            default => $query->orderBy('tickets.'.$sortBy, $sortDirection),
+        };
+
+        $tickets = $sorted->paginate(10);
 
         $baseQuery = Ticket::query()->approved()->where('status', '!=', 'draft');
 
@@ -125,6 +157,12 @@ new class extends Component
                 ->where('role', Role::Admin)
                 ->orderBy('name')
                 ->get(),
+            // Only authors with a ticket this listing can actually show, so the
+            // selector never offers an option that returns nothing.
+            'clients' => User::query()
+                ->whereHas('tickets', fn ($query) => $query->approved()->where('status', '!=', 'draft'))
+                ->orderBy('name')
+                ->get(),
         ];
     }
 };
@@ -146,20 +184,58 @@ new class extends Component
         </x-tab>
     </x-tabs>
 
+    <x-panel>
+        <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+            <flux:input
+                class="sm:flex-1"
+                wire:model.live.debounce.300ms="search"
+                icon="magnifying-glass"
+                clearable
+                :label="__('Buscar')"
+                :placeholder="__('Título o número de ticket')"
+            />
+
+            <flux:select class="sm:w-56" wire:model.live="clientFilter" :label="__('Cliente')">
+                <flux:select.option value="">{{ __('Todos los clientes') }}</flux:select.option>
+                @foreach ($clients as $client)
+                    <flux:select.option value="{{ $client->id }}">{{ $client->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select class="sm:w-56" wire:model.live="assignedToFilter" :label="__('Asignado a')">
+                <flux:select.option value="">{{ __('Todos') }}</flux:select.option>
+                <flux:select.option value="unassigned">{{ __('Sin asignar') }}</flux:select.option>
+                @foreach ($assignableUsers as $assignable)
+                    <flux:select.option value="{{ $assignable->id }}">{{ $assignable->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        </div>
+    </x-panel>
+
     @if ($tickets->isEmpty())
-        <x-empty-state :message="__('No hay tickets.')" />
+        @php
+            $hasFilters = $search !== '' || $clientFilter !== '' || $assignedToFilter !== '';
+        @endphp
+
+        <x-empty-state :message="$hasFilters ? __('Ningún ticket coincide con los filtros aplicados.') : __('No hay tickets.')" />
     @else
         <x-table-panel>
             <flux:table :paginate="$tickets">
                 <flux:table.columns>
                     <flux:table.row>
-                        <flux:table.column class="w-24">{{ __('ID') }}</flux:table.column>
+                        <flux:table.column class="w-24" sortable :sorted="$sortBy === 'id'" :direction="$sortDirection" wire:click="sort('id')">
+                            {{ __('ID') }}
+                        </flux:table.column>
                         <flux:table.column>{{ __('Asunto') }}</flux:table.column>
-                        <flux:table.column>{{ __('Estado') }}</flux:table.column>
+                        <flux:table.column sortable :sorted="$sortBy === 'status'" :direction="$sortDirection" wire:click="sort('status')">
+                            {{ __('Estado') }}
+                        </flux:table.column>
                         <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
                             {{ __('Prioridad') }}
                         </flux:table.column>
-                        <flux:table.column class="hidden md:table-cell">{{ __('Categoría') }}</flux:table.column>
+                        <flux:table.column class="hidden md:table-cell" sortable :sorted="$sortBy === 'category'" :direction="$sortDirection" wire:click="sort('category')">
+                            {{ __('Categoría') }}
+                        </flux:table.column>
                         <flux:table.column class="hidden lg:table-cell">{{ __('Cliente') }}</flux:table.column>
                         <flux:table.column>{{ __('Asignado a') }}</flux:table.column>
                     </flux:table.row>

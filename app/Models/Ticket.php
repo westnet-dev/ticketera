@@ -50,6 +50,18 @@ class Ticket extends Model
     public const STATUSES = ['draft', 'open', 'in_progress', 'paused', 'resolved', 'cancelled'];
 
     /**
+     * The order statuses are presented in when a listing is sorted by status.
+     *
+     * This is a display order, not a state machine: nothing stops a ticket from
+     * moving between any two statuses. It exists because the stored values are
+     * plain strings, so sorting by the column alone gives alphabetical order
+     * (cancelled, draft, in_progress, ...), which reads as noise to a human.
+     *
+     * @var array<int, string>
+     */
+    public const STATUS_FLOW = ['open', 'in_progress', 'paused', 'resolved', 'cancelled', 'draft'];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -204,9 +216,126 @@ class Ticket extends Model
         $query->orderBy('priority', $direction)->orderBy('impact', $direction);
     }
 
+    /**
+     * Order by status following STATUS_FLOW rather than the alphabetical order
+     * of the stored string.
+     *
+     * Spelled out as a CASE instead of MySQL's FIELD() so the same query runs
+     * on SQLite. The statuses travel as bindings and the direction is resolved
+     * against a whitelist, so nothing from the request reaches the SQL.
+     *
+     * @param  Builder<Ticket>  $query
+     */
+    protected function scopeOrderByStatusFlow($query, string $direction = 'asc'): void
+    {
+        $direction = static::sortDirection($direction);
+
+        $cases = [];
+        $bindings = [];
+
+        foreach (self::STATUS_FLOW as $position => $status) {
+            $cases[] = 'WHEN tickets.status = ? THEN '.$position;
+            $bindings[] = $status;
+        }
+
+        $query->orderByRaw(
+            'CASE '.implode(' ', $cases).' ELSE '.count(self::STATUS_FLOW).' END '.$direction,
+            $bindings,
+        );
+    }
+
+    /**
+     * Order by category name, keeping uncategorised tickets last in both
+     * directions rather than letting the driver decide where NULLs land.
+     *
+     * The explicit select is load-bearing: without it the join overwrites
+     * tickets.id with ticket_categories.id and the listing renders the wrong IDs.
+     *
+     * @param  Builder<Ticket>  $query
+     */
+    protected function scopeOrderByCategoryName($query, string $direction = 'asc'): void
+    {
+        $direction = static::sortDirection($direction);
+
+        $query->select('tickets.*')
+            ->leftJoin('ticket_categories', 'ticket_categories.id', '=', 'tickets.category_id')
+            ->orderByRaw('tickets.category_id IS NULL')
+            ->orderBy('ticket_categories.name', $direction);
+    }
+
+    /**
+     * Resolve a sort direction against the only two values allowed in SQL.
+     *
+     * @return 'asc'|'desc'
+     */
+    public static function sortDirection(?string $direction): string
+    {
+        return strtolower((string) $direction) === 'desc' ? 'desc' : 'asc';
+    }
+
     protected function scopeUnassigned($query): void
     {
         $query->whereNull('assigned_to');
+    }
+
+    /**
+     * Narrow a listing by a free-text term.
+     *
+     * A term that reads as a ticket number (123, TK-123, #TK-123) looks the
+     * ticket up by ID; anything else matches the title. Deliberately one path
+     * per term and never an orWhere: an orWhere here would escape the filters
+     * already on the query and widen the result past what the caller allowed.
+     *
+     * @param  Builder<Ticket>  $query
+     */
+    protected function scopeSearch($query, ?string $term): void
+    {
+        $term = trim((string) $term);
+
+        if ($term === '') {
+            return;
+        }
+
+        if (preg_match('/^#?(?:TK-)?(\d+)$/i', $term, $matches) === 1) {
+            $query->where('tickets.id', (int) $matches[1]);
+
+            return;
+        }
+
+        $query->where('tickets.title', 'like', '%'.$term.'%');
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     */
+    protected function scopeForClient($query, ?string $userId): void
+    {
+        if ($userId === null || $userId === '') {
+            return;
+        }
+
+        $query->where('tickets.user_id', $userId);
+    }
+
+    /**
+     * Narrow a listing by who it is assigned to, where the 'unassigned'
+     * sentinel means tickets with nobody on them.
+     *
+     * @param  Builder<Ticket>  $query
+     */
+    protected function scopeAssignedToUser($query, ?string $value): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        if ($value === 'unassigned') {
+            $query->whereNull('tickets.assigned_to');
+
+            return;
+        }
+
+        $query->where('tickets.assigned_to', $value);
     }
 
     protected function scopeApproved($query): void

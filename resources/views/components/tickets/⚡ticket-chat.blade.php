@@ -38,7 +38,7 @@ new class extends Component
         <flux:heading size="sm">{{ __('Conversación') }}</flux:heading>
     </div>
 
-    <div class="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-4 lg:max-h-[33rem]">
+    <div class="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-4 lg:max-h-132">
         @forelse ($messages as $message)
             <div @class([
                 'max-w-[85%] rounded-lg px-3 py-2 text-sm wrap-break-word sm:max-w-[75%]',
