@@ -136,6 +136,16 @@ class TicketPolicy
     }
 
     /**
+     * Determine whether the user can see and manage the ticket's links to Linear issues.
+     *
+     * Linear holds the team's internal work, so clients never see it.
+     */
+    public function manageLinearLinks(User $user, Ticket $ticket): bool
+    {
+        return $user->isAdmin() && ! $ticket->isDraft();
+    }
+
+    /**
      * Determine whether the user can update the model.
      */
     public function update(User $user, Ticket $ticket): bool

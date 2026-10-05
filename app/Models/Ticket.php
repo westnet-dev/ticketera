@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Casts\SanitizedHtml;
 use App\Enums\Difficulty;
 use App\Enums\Level;
+use App\Enums\LinearLinkSource;
 use App\Enums\TicketPriority;
 use App\Enums\TriageStatus;
 use App\Enums\ValidationStatus;
+use App\Services\Linear\LinearIssue;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -230,6 +232,35 @@ class Ticket extends Model
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    /**
+     * @return HasMany<TicketLinearLink, $this>
+     */
+    public function linearLinks(): HasMany
+    {
+        return $this->hasMany(TicketLinearLink::class)->orderBy('created_at');
+    }
+
+    /**
+     * Link a Linear issue to this ticket, or refresh the cached fields of an existing link.
+     *
+     * An existing link keeps its original source and author.
+     */
+    public function linkLinearIssue(LinearIssue $issue, LinearLinkSource $source, ?int $linkedBy = null): TicketLinearLink
+    {
+        $cached = [...$issue->toLinkAttributes(), 'synced_at' => now()];
+
+        $link = $this->linearLinks()->createOrFirst(
+            ['linear_issue_id' => $issue->id],
+            [...$cached, 'source' => $source, 'linked_by' => $linkedBy],
+        );
+
+        if (! $link->wasRecentlyCreated) {
+            $link->update($cached);
+        }
+
+        return $link;
     }
 
     /**
