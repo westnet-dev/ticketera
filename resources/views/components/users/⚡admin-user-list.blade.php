@@ -3,6 +3,7 @@
 use App\Enums\Role;
 use App\Models\Area;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -20,18 +21,28 @@ new class extends Component
 
     public string $role = '';
 
-    public string $area_id = '';
+    /**
+     * @var array<int, string>
+     */
+    public array $area_ids = [];
+
+    public ?int $editingAreasUserId = null;
+
+    /**
+     * @var array<int, string>
+     */
+    public array $editingAreaIds = [];
 
     public function updatedRole(string $value): void
     {
-        if ($value !== Role::Admin->value || $this->area_id !== '') {
+        if ($value !== Role::Admin->value || $this->area_ids !== []) {
             return;
         }
 
         $defaultArea = Area::where('title', 'Desarrollo')->first();
 
         if ($defaultArea) {
-            $this->area_id = (string) $defaultArea->id;
+            $this->area_ids = [(string) $defaultArea->id];
         }
     }
 
@@ -43,20 +54,26 @@ new class extends Component
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(array_column(Role::cases(), 'value'))],
-            'area_id' => ['nullable', 'exists:areas,id'],
+            'area_ids' => ['array'],
+            'area_ids.*' => ['integer', 'distinct', 'exists:areas,id'],
         ]);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'role' => $validated['role'],
-            'area_id' => $validated['area_id'] ?: null,
-            'password' => Str::random(40),
-        ]);
+        $user = DB::transaction(function () use ($validated): User {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'role' => $validated['role'],
+                'password' => Str::random(40),
+            ]);
+
+            $user->areas()->sync($validated['area_ids'] ?? []);
+
+            return $user;
+        });
 
         Password::sendResetLink(['email' => $user->email]);
 
-        $this->reset(['name', 'email', 'role', 'area_id']);
+        $this->reset(['name', 'email', 'role', 'area_ids']);
 
         $this->modal('create-user')->close();
 
@@ -73,13 +90,39 @@ new class extends Component
         $target->update(['role' => $newRole]);
     }
 
-    public function updateArea(int $userId, ?string $areaId): void
+    public function startEditingAreas(int $userId): void
     {
         $target = User::findOrFail($userId);
 
         Gate::authorize('updateArea', $target);
 
-        $target->update(['area_id' => $areaId ?: null]);
+        $this->resetValidation('editingAreaIds');
+        $this->editingAreasUserId = $target->id;
+        $this->editingAreaIds = $target->areas()->pluck('areas.id')->map(fn (int $id): string => (string) $id)->all();
+
+        $this->modal('edit-areas')->show();
+    }
+
+    /**
+     * Replace the user's areas with the picked ones. Tickets already filed keep
+     * the area they were filed for, so removing an area never touches them.
+     */
+    public function updateAreas(): void
+    {
+        $target = User::findOrFail($this->editingAreasUserId);
+
+        Gate::authorize('updateArea', $target);
+
+        $validated = $this->validate([
+            'editingAreaIds' => ['array'],
+            'editingAreaIds.*' => ['integer', 'distinct', 'exists:areas,id'],
+        ]);
+
+        $target->areas()->sync($validated['editingAreaIds']);
+
+        $this->reset(['editingAreasUserId', 'editingAreaIds']);
+
+        $this->modal('edit-areas')->close();
     }
 
     public function resetPassword(int $userId): void
@@ -105,7 +148,7 @@ new class extends Component
     public function with(): array
     {
         return [
-            'users' => User::query()->orderBy('name')->paginate(20),
+            'users' => User::query()->with(['areas' => fn ($query) => $query->orderBy('title')])->orderBy('name')->paginate(20),
             'roles' => Role::cases(),
             'areas' => Area::orderBy('title')->get(),
             'activeAdminCount' => User::activeAdminCount(),
@@ -155,16 +198,14 @@ new class extends Component
                             </flux:select>
                         </flux:table.cell>
                         <flux:table.cell class="hidden lg:table-cell">
-                            <flux:select size="sm" wire:change="updateArea({{ $user->id }}, $event.target.value)">
-                                <flux:select.option value="" :selected="is_null($user->area_id)">
-                                    {{ __('Sin área') }}
-                                </flux:select.option>
-                                @foreach ($areas as $areaOption)
-                                    <flux:select.option value="{{ $areaOption->id }}" :selected="$user->area_id === $areaOption->id">
-                                        {{ $areaOption->title }}
-                                    </flux:select.option>
-                                @endforeach
-                            </flux:select>
+                            <div class="flex flex-wrap items-center gap-1">
+                                @forelse ($user->areas as $userArea)
+                                    <flux:badge size="sm">{{ $userArea->title }}</flux:badge>
+                                @empty
+                                    <flux:text size="sm">{{ __('Sin área') }}</flux:text>
+                                @endforelse
+                                <flux:button size="xs" variant="ghost" icon="pencil-square" wire:click="startEditingAreas({{ $user->id }})" :aria-label="__('Editar áreas de :name', ['name' => $user->name])" />
+                            </div>
                         </flux:table.cell>
                         <flux:table.cell class="flex flex-wrap items-center gap-2">
                             <flux:button
@@ -214,14 +255,11 @@ new class extends Component
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model="area_id" :label="__('Área')">
-                <flux:select.option value="">{{ __('Sin área') }}</flux:select.option>
+            <flux:checkbox.group wire:model="area_ids" variant="pills" :label="__('Áreas')" :description="__('Podés elegir más de una, o ninguna.')">
                 @foreach ($areas as $areaOption)
-                    <flux:select.option value="{{ $areaOption->id }}">
-                        {{ $areaOption->title }}
-                    </flux:select.option>
+                    <flux:checkbox :key="$areaOption->id" value="{{ $areaOption->id }}" :label="$areaOption->title" />
                 @endforeach
-            </flux:select>
+            </flux:checkbox.group>
 
             <div class="flex justify-end space-x-2 rtl:space-x-reverse">
                 <flux:modal.close>
@@ -230,6 +268,33 @@ new class extends Component
 
                 <flux:button variant="primary" type="submit">
                     {{ __('Crear usuario') }}
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal name="edit-areas" class="max-w-lg">
+        <form wire:submit="updateAreas" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Áreas del usuario') }}</flux:heading>
+                <flux:subheading>
+                    {{ __('Los tickets ya creados conservan el área para la que se crearon.') }}
+                </flux:subheading>
+            </div>
+
+            <flux:checkbox.group wire:model="editingAreaIds" variant="pills" :label="__('Áreas')">
+                @foreach ($areas as $areaOption)
+                    <flux:checkbox :key="$areaOption->id" value="{{ $areaOption->id }}" :label="$areaOption->title" />
+                @endforeach
+            </flux:checkbox.group>
+
+            <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+                <flux:modal.close>
+                    <flux:button variant="filled">{{ __('Cancelar') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button variant="primary" type="submit">
+                    {{ __('Guardar') }}
                 </flux:button>
             </div>
         </form>

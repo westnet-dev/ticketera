@@ -124,6 +124,11 @@
                         <dd class="mt-1"><x-tickets.category-badge :category="$ticket->category" /></dd>
                     </div>
 
+                    <div>
+                        <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Área') }}</dt>
+                        <dd class="mt-1 text-neutral-900 dark:text-white">{{ $ticket->area?->title ?? __('Sin área') }}</dd>
+                    </div>
+
                     @if ($ticket->validationWasRequested())
                         <div>
                             <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Validación') }}</dt>

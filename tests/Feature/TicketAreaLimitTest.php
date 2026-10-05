@@ -10,16 +10,17 @@ use Livewire\Livewire;
 
 /**
  * The ticket cap is an area-wide budget: it stays finite no matter how many
- * people the area has. The fallback for users with no area lives in
- * `TicketCreationLimitTest`.
+ * people the area has, and it counts the tickets filed for the area, not the
+ * tickets of its current members. The fallback for users with no area lives
+ * in `TicketCreationLimitTest`.
  */
 function fillAreaToCap(Area $area, string $status = 'open'): User
 {
-    $teammate = User::factory()->for($area)->create();
+    $teammate = User::factory()->withAreas($area)->create();
 
     Ticket::factory()
         ->count(TicketSetting::current()->max_open_tickets_per_area)
-        ->create(['user_id' => $teammate->id, 'status' => $status]);
+        ->create(['user_id' => $teammate->id, 'area_id' => $area->id, 'status' => $status]);
 
     return $teammate;
 }
@@ -27,9 +28,10 @@ function fillAreaToCap(Area $area, string $status = 'open'): User
 /**
  * @return Testable
  */
-function attemptTicket(string $title, string $description)
+function attemptTicket(string $title, string $description, ?Area $area = null)
 {
     return Livewire::test('tickets.create-ticket')
+        ->set('area_id', $area?->id ?? '')
         ->set('title', $title)
         ->set('description', $description)
         ->set('importance', Level::Medium->value)
@@ -42,7 +44,7 @@ test('a client is blocked when their area reached the cap through a teammate', f
     $area = Area::factory()->create();
     fillAreaToCap($area);
 
-    $client = User::factory()->for($area)->create();
+    $client = User::factory()->withAreas($area)->create();
 
     $this->actingAs($client);
 
@@ -53,31 +55,64 @@ test('a client is blocked when their area reached the cap through a teammate', f
 });
 
 test('the blocking message names the area, not the user', function () {
-    $area = Area::factory()->create();
+    $area = Area::factory()->create(['title' => 'Comercial']);
     fillAreaToCap($area);
 
-    $client = User::factory()->for($area)->create();
+    $client = User::factory()->withAreas($area)->create();
 
     $this->actingAs($client);
 
     $component = attemptTicket('No debería poder crear otro', 'Mi área ya llegó al tope aunque yo no tenga ninguno propio.');
 
-    expect($component->errors()->first('title'))->toContain('Tu área alcanzó el máximo');
+    expect($component->errors()->first('title'))->toContain('El área Comercial alcanzó el máximo');
 });
 
-test('a client can create past their own count while their area is under the cap', function () {
-    TicketSetting::current()->update(['max_open_tickets_per_area' => 10]);
+test('a client with several areas can file for the one that still has room', function () {
+    $fullArea = Area::factory()->create();
+    fillAreaToCap($fullArea);
+    $openArea = Area::factory()->create();
 
-    $area = Area::factory()->create();
-    $client = User::factory()->for($area)->create();
-    Ticket::factory()->count(8)->create(['user_id' => $client->id, 'status' => 'open']);
+    $client = User::factory()->withAreas($fullArea, $openArea)->create();
 
     $this->actingAs($client);
 
-    attemptTicket('Puedo crear igual', 'El tope individual dejó de evaluarse: lo que manda es el total del área.')
+    attemptTicket('Va al área con cupo', 'Una de mis áreas está en el tope pero la otra no.', $openArea)
         ->assertHasNoErrors();
 
-    expect(Ticket::where('user_id', $client->id)->count())->toBe(9);
+    expect(Ticket::where('user_id', $client->id)->sole()->area_id)->toBe($openArea->id);
+});
+
+test('a client with several areas is blocked when filing for the full one', function () {
+    $fullArea = Area::factory()->create(['title' => 'Comercial']);
+    fillAreaToCap($fullArea);
+    $openArea = Area::factory()->create();
+
+    $client = User::factory()->withAreas($fullArea, $openArea)->create();
+
+    $this->actingAs($client);
+
+    $component = attemptTicket('Va al área llena', 'Elegí el área que ya está en el tope.', $fullArea)
+        ->assertHasErrors(['title']);
+
+    expect($component->errors()->first('title'))->toContain('El área Comercial alcanzó el máximo');
+    expect(Ticket::where('user_id', $client->id)->count())->toBe(0);
+});
+
+test('a client can create past their own count while the area is under the cap', function () {
+    TicketSetting::current()->update(['max_open_tickets_per_area' => 10]);
+
+    $area = Area::factory()->create();
+    $otherArea = Area::factory()->create();
+    $client = User::factory()->withAreas($area, $otherArea)->create();
+    Ticket::factory()->count(4)->create(['user_id' => $client->id, 'area_id' => $area->id, 'status' => 'open']);
+    Ticket::factory()->count(8)->create(['user_id' => $client->id, 'area_id' => $otherArea->id, 'status' => 'open']);
+
+    $this->actingAs($client);
+
+    attemptTicket('Puedo crear igual', 'El tope individual no se evalúa: lo que manda es el total del área elegida.', $area)
+        ->assertHasNoErrors();
+
+    expect(Ticket::where('user_id', $client->id)->count())->toBe(13);
 });
 
 test('resolving a teammate ticket frees room for the whole area', function () {
@@ -86,7 +121,7 @@ test('resolving a teammate ticket frees room for the whole area', function () {
 
     Ticket::where('user_id', $teammate->id)->first()->update(['status' => 'resolved']);
 
-    $client = User::factory()->for($area)->create();
+    $client = User::factory()->withAreas($area)->create();
 
     $this->actingAs($client);
 
@@ -100,7 +135,7 @@ test('draft tickets of the area do not count toward the cap', function () {
     $area = Area::factory()->create();
     fillAreaToCap($area, 'draft');
 
-    $client = User::factory()->for($area)->create();
+    $client = User::factory()->withAreas($area)->create();
 
     $this->actingAs($client);
 
@@ -114,7 +149,7 @@ test('unclosed tickets of another area do not count', function () {
     fillAreaToCap(Area::factory()->create());
 
     $ownArea = Area::factory()->create();
-    $client = User::factory()->for($ownArea)->create();
+    $client = User::factory()->withAreas($ownArea)->create();
 
     $this->actingAs($client);
 
@@ -124,7 +159,39 @@ test('unclosed tickets of another area do not count', function () {
     expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
 });
 
-test('a client at their own cap stays blocked after joining an empty area', function () {
+test('tickets filed for an area keep counting after their author leaves it', function () {
+    $area = Area::factory()->create();
+    $teammate = fillAreaToCap($area);
+
+    $teammate->areas()->detach();
+
+    $client = User::factory()->withAreas($area)->create();
+
+    $this->actingAs($client);
+
+    attemptTicket('Sigo bloqueado', 'Los tickets del área siguen pendientes aunque su autor ya no esté en ella.')
+        ->assertHasErrors(['title']);
+
+    expect(Ticket::where('user_id', $client->id)->count())->toBe(0);
+});
+
+test('tickets of a soft-deleted user keep counting toward the area they were filed for', function () {
+    $area = Area::factory()->create();
+    $teammate = fillAreaToCap($area);
+
+    $teammate->delete();
+
+    $client = User::factory()->withAreas($area)->create();
+
+    $this->actingAs($client);
+
+    attemptTicket('Sigo bloqueado tras la baja', 'El trabajo pendiente sigue siendo del área aunque la persona se haya ido.')
+        ->assertHasErrors(['title']);
+
+    expect(Ticket::where('user_id', $client->id)->count())->toBe(0);
+});
+
+test('a client at their own cap can file once they join an area with room', function () {
     $client = User::factory()->create();
     Ticket::factory()
         ->count(TicketSetting::current()->max_open_tickets_per_area)
@@ -135,42 +202,20 @@ test('a client at their own cap stays blocked after joining an empty area', func
     attemptTicket('Bloqueado sin área', 'Sin área me mido contra mis propios tickets y ya llegué al tope.')
         ->assertHasErrors(['title']);
 
-    $client->update(['area_id' => Area::factory()->create()->id]);
-    $this->actingAs($client->fresh());
-
-    attemptTicket('Sigo bloqueado con área', 'Mis tickets abiertos entran al área conmigo, así que el área nace en el tope.')
-        ->assertHasErrors(['title']);
-
-    expect(Ticket::where('user_id', $client->id)->count())
-        ->toBe(TicketSetting::current()->max_open_tickets_per_area);
-});
-
-test('joining an area changes the subject of the count to the whole team', function () {
     $area = Area::factory()->create();
-    $teammate = User::factory()->for($area)->create();
-    Ticket::factory()->count(4)->create(['user_id' => $teammate->id, 'status' => 'open']);
+    $client->areas()->attach($area);
 
-    $client = User::factory()->create();
-
-    $this->actingAs($client);
-
-    attemptTicket('Sin área puedo crear', 'No tengo tickets propios, así que nada me bloquea.')
+    attemptTicket('Con área puedo crear', 'Mis tickets viejos no tienen área, así que el área nueva tiene cupo.')
         ->assertHasNoErrors();
 
-    $client->update(['area_id' => $area->id]);
-    $this->actingAs($client->fresh());
-
-    attemptTicket('Con área ya no', 'Ahora los 4 de mi compañero más el mío llegan al tope del área.')
-        ->assertHasErrors(['title']);
-
-    expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
+    expect(Ticket::where('user_id', $client->id)->latest('id')->first()->area_id)->toBe($area->id);
 });
 
 test('an admin creates their own tickets even when their area is over the cap', function () {
     $area = Area::factory()->create();
     fillAreaToCap($area);
 
-    $admin = User::factory()->admin()->for($area)->create();
+    $admin = User::factory()->admin()->withAreas($area)->create();
 
     $this->actingAs($admin);
 
@@ -184,7 +229,7 @@ test('an admin can file on behalf of a client whose area reached the cap', funct
     $area = Area::factory()->create();
     fillAreaToCap($area);
 
-    $client = User::factory()->for($area)->create();
+    $client = User::factory()->withAreas($area)->create();
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin);
@@ -199,7 +244,7 @@ test('an admin can file on behalf of a client whose area reached the cap', funct
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
+    expect(Ticket::where('user_id', $client->id)->sole()->area_id)->toBe($area->id);
 
     $this->actingAs($client);
 
@@ -207,30 +252,11 @@ test('an admin can file on behalf of a client whose area reached the cap', funct
         ->assertHasErrors(['title']);
 });
 
-test('tickets of a soft-deleted user stop counting toward their area cap', function () {
-    $area = Area::factory()->create();
-    $teammate = fillAreaToCap($area);
-
-    $client = User::factory()->for($area)->create();
-
-    $this->actingAs($client);
-
-    attemptTicket('Bloqueado por el compañero', 'El área está en el tope por los tickets de mi compañero.')
-        ->assertHasErrors(['title']);
-
-    $teammate->delete();
-
-    attemptTicket('Desbloqueado tras la baja', 'Los tickets de alguien dado de baja dejan de consumir cupo del área.')
-        ->assertHasNoErrors();
-
-    expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
-});
-
 test('lowering the cap below what an area already holds blocks creation without touching tickets', function () {
     $area = Area::factory()->create();
     $teammate = fillAreaToCap($area);
 
-    $client = User::factory()->for($area)->create();
+    $client = User::factory()->withAreas($area)->create();
     $before = Ticket::where('user_id', $teammate->id)->pluck('status', 'id');
 
     TicketSetting::current()->update(['max_open_tickets_per_area' => 2]);
@@ -248,10 +274,10 @@ test('the configured cap applies to every area regardless of headcount', functio
     TicketSetting::current()->update(['max_open_tickets_per_area' => 3]);
 
     $bigArea = Area::factory()->create();
-    User::factory()->count(10)->for($bigArea)->create()
-        ->each(fn (User $member) => Ticket::factory()->create(['user_id' => $member->id, 'status' => 'open']));
+    User::factory()->count(10)->withAreas($bigArea)->create()
+        ->each(fn (User $member) => Ticket::factory()->create(['user_id' => $member->id, 'area_id' => $bigArea->id, 'status' => 'open']));
 
-    $client = User::factory()->for($bigArea)->create();
+    $client = User::factory()->withAreas($bigArea)->create();
 
     $this->actingAs($client);
 

@@ -59,7 +59,7 @@ new #[Title('Profile settings')] class extends Component {
             </div>
 
             <div>
-                <flux:input :value="Auth::user()->area?->title ?? __('Sin área asignada')" :label="__('Área')" readonly disabled />
+                <flux:input :value="Auth::user()->areas()->orderBy('title')->pluck('title')->join(', ') ?: __('Sin área asignada')" :label="__('Áreas')" readonly disabled />
             </div>
 
             <div class="flex items-center gap-4">

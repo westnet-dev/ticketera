@@ -3,6 +3,7 @@
 use App\Enums\Level;
 use App\Enums\Role;
 use App\Enums\TriageStatus;
+use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\TicketImage;
@@ -10,6 +11,7 @@ use App\Models\TicketSetting;
 use App\Models\User;
 use App\Rules\RichTextLength;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -33,6 +35,7 @@ new class extends Component
     public $urgency = Level::Medium->value;
     public $impact = Level::Medium->value;
     public $category_id = '';
+    public $area_id = '';
     public $images = [];
     public $author_id = '';
 
@@ -47,6 +50,7 @@ new class extends Component
             $this->urgency = $draft->urgency->value;
             $this->impact = $draft->impact->value;
             $this->category_id = $draft->category_id ?? '';
+            $this->area_id = $draft->area_id ?? '';
         }
     }
 
@@ -62,6 +66,82 @@ new class extends Component
         $authorId = (int) $this->author_id;
 
         return $authorId === auth()->id() ? null : $authorId;
+    }
+
+    /**
+     * A different author can bring different areas, so the one picked for the previous author no longer applies.
+     */
+    public function updatedAuthorId(): void
+    {
+        $this->reset('area_id');
+    }
+
+    /**
+     * The user the ticket is filed for: the client an admin picked, or whoever is filing it.
+     */
+    private function effectiveAuthorId(): int
+    {
+        return $this->resolvedAuthorId() ?? auth()->id();
+    }
+
+    /**
+     * The areas the ticket can be filed for, which are always its author's.
+     *
+     * @return Collection<int, Area>
+     */
+    private function authorAreas(): Collection
+    {
+        return Area::query()
+            ->whereRelation('users', 'users.id', $this->effectiveAuthorId())
+            ->orderBy('title')
+            ->get();
+    }
+
+    /**
+     * The area the ticket goes to.
+     *
+     * An author with a single area never sees the picker, so that area is used
+     * as is; one with several areas must have picked one, already validated.
+     */
+    private function resolvedArea(): ?Area
+    {
+        $areas = $this->authorAreas();
+
+        if ($areas->count() <= 1) {
+            return $areas->first();
+        }
+
+        return $areas->firstWhere('id', (int) $this->area_id);
+    }
+
+    /**
+     * Picking an area is only mandatory when the author has more than one, and
+     * the pick is checked against the author's areas since the client can send any value.
+     *
+     * @return array{area_id: array<int, mixed>}
+     */
+    private function areaRules(bool $required): array
+    {
+        $authorId = $this->effectiveAuthorId();
+
+        return [
+            'area_id' => [
+                $required && $this->authorAreas()->count() > 1 ? 'required' : 'nullable',
+                'integer',
+                Rule::exists('area_user', 'area_id')->where('user_id', $authorId),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function areaMessages(): array
+    {
+        return [
+            'area_id.required' => __('Elegí para qué área es el ticket.'),
+            'area_id.exists' => __('El área elegida no corresponde al autor del ticket.'),
+        ];
     }
 
     /**
@@ -106,15 +186,16 @@ new class extends Component
     /**
      * The blocking message shown when the ticket cap is reached.
      *
-     * Names whose cap filled up, because a user with an area can be blocked
-     * without holding a single ticket of their own.
+     * Names whose cap filled up, because a user can be blocked by an area
+     * without holding a single ticket of their own, and one with several
+     * areas needs to know which one is full to pick another.
      */
-    private function limitReachedMessage(string $action): string
+    private function limitReachedMessage(string $action, ?Area $area): string
     {
         $max = TicketSetting::current()->max_open_tickets_per_area;
 
-        return auth()->user()->ticketLimitIsPerArea()
-            ? __('Tu área alcanzó el máximo de :max tickets sin cerrar permitidos. :action', ['max' => $max, 'action' => $action])
+        return $area !== null
+            ? __('El área :area alcanzó el máximo de :max tickets sin cerrar permitidos. :action', ['area' => $area->title, 'max' => $max, 'action' => $action])
             : __('Alcanzaste el máximo de :max tickets sin cerrar permitidos. :action', ['max' => $max, 'action' => $action]);
     }
 
@@ -128,8 +209,9 @@ new class extends Component
             'urgency' => ['required', Rule::enum(Level::class)],
             'impact' => ['required', Rule::enum(Level::class)],
             'category_id' => 'nullable|integer|exists:ticket_categories,id',
+            ...$this->areaRules(required: true),
             ...$this->imageRules(),
-        ], $this->imageMessages());
+        ], [...$this->areaMessages(), ...$this->imageMessages()]);
     }
 
     public function save()
@@ -140,18 +222,21 @@ new class extends Component
             Gate::authorize('createForOthers', Ticket::class);
         }
 
+        $this->validateInput();
+
+        $area = $this->resolvedArea();
+
         try {
-            Gate::authorize('create', Ticket::class);
+            Gate::authorize('create', [Ticket::class, $area]);
         } catch (AuthorizationException $e) {
-            $this->addError('title', $this->limitReachedMessage(__('Cerrá alguno para poder crear uno nuevo.')));
+            $this->addError('title', $this->limitReachedMessage(__('Cerrá alguno para poder crear uno nuevo.'), $area));
 
             return;
         }
 
-        $this->validateInput();
-
         $ticket = Ticket::create([
             'user_id' => $authorId ?? auth()->id(),
+            'area_id' => $area?->id,
             'created_by' => auth()->id(),
             'title' => $this->title,
             'description' => $this->description,
@@ -164,7 +249,7 @@ new class extends Component
 
         $this->storeUploadedImages($ticket);
 
-        $this->reset(['title', 'description', 'importance', 'urgency', 'impact', 'category_id', 'images', 'author_id']);
+        $this->reset(['title', 'description', 'importance', 'urgency', 'impact', 'category_id', 'area_id', 'images', 'author_id']);
 
         session()->flash('message', $authorId !== null
             ? __('Ticket creado a nombre de :name.', ['name' => $ticket->user->name])
@@ -185,8 +270,9 @@ new class extends Component
             'urgency' => ['nullable', Rule::enum(Level::class)],
             'impact' => ['nullable', Rule::enum(Level::class)],
             'category_id' => 'nullable|integer|exists:ticket_categories,id',
+            ...$this->areaRules(required: false),
             ...$this->imageRules(),
-        ], $this->imageMessages());
+        ], [...$this->areaMessages(), ...$this->imageMessages()]);
 
         $attributes = [
             'title' => $this->title,
@@ -195,6 +281,7 @@ new class extends Component
             'urgency' => filled($this->urgency) ? (int) $this->urgency : Level::Medium,
             'impact' => filled($this->impact) ? (int) $this->impact : Level::Medium,
             'category_id' => $this->resolvedCategoryId(),
+            'area_id' => $this->resolvedArea()?->id,
         ];
 
         if ($this->draft) {
@@ -224,15 +311,17 @@ new class extends Component
 
         Gate::authorize('update', $this->draft);
 
+        $this->validateInput();
+
+        $area = $this->resolvedArea();
+
         try {
-            Gate::authorize('create', Ticket::class);
+            Gate::authorize('create', [Ticket::class, $area]);
         } catch (AuthorizationException $e) {
-            $this->addError('title', $this->limitReachedMessage(__('Cerrá alguno para poder enviar este borrador.')));
+            $this->addError('title', $this->limitReachedMessage(__('Cerrá alguno para poder enviar este borrador.'), $area));
 
             return;
         }
-
-        $this->validateInput();
 
         DB::transaction(fn () => $this->draft->update([
             'title' => $this->title,
@@ -241,6 +330,7 @@ new class extends Component
             'urgency' => (int) $this->urgency,
             'impact' => (int) $this->impact,
             'category_id' => $this->resolvedCategoryId(),
+            'area_id' => $area?->id,
             'status' => 'open',
             'triage_status' => auth()->user()->isAdmin() ? TriageStatus::Approved : TriageStatus::Pending,
         ]));
@@ -260,11 +350,12 @@ new class extends Component
     }
 
     /**
-     * @return array{clients: \Illuminate\Support\Collection<int, User>, categories: \Illuminate\Support\Collection<int, TicketCategory>}
+     * @return array{clients: \Illuminate\Support\Collection<int, User>, categories: \Illuminate\Support\Collection<int, TicketCategory>, authorAreas: Collection<int, Area>}
      */
     public function with(): array
     {
         return [
+            'authorAreas' => $this->authorAreas(),
             'categories' => TicketCategory::orderBy('name')->get(),
             'clients' => auth()->user()->isAdmin()
                 ? User::query()->role(Role::Client->value)->orderBy('name')->get()
@@ -310,6 +401,22 @@ new class extends Component
                         @endforeach
                     </flux:select>
                     <flux:error name="author_id" />
+                </flux:field>
+            @endif
+
+            @if ($authorAreas->count() > 1)
+                <flux:field>
+                    <flux:label>{{ __('Área') }}</flux:label>
+                    <flux:description>{{ __('Elegí para qué área es este ticket.') }}</flux:description>
+                    <flux:select wire:model="area_id">
+                        <flux:select.option value="">{{ __('Elegir un área') }}</flux:select.option>
+                        @foreach ($authorAreas as $areaOption)
+                            <flux:select.option :key="$areaOption->id" value="{{ $areaOption->id }}">
+                                {{ $areaOption->title }}
+                            </flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:error name="area_id" />
                 </flux:field>
             @endif
 

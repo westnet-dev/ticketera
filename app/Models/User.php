@@ -7,8 +7,9 @@ use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -30,10 +31,9 @@ use Illuminate\Support\Str;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property Role $role
- * @property int|null $area_id
- * @property Area|null $area
+ * @property Collection<int, Area> $areas
  */
-#[Fillable(['name', 'email', 'password', 'role', 'area_id'])]
+#[Fillable(['name', 'email', 'password', 'role'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -107,29 +107,25 @@ class User extends Authenticatable
         return $this->hasMany(Ticket::class);
     }
 
-    public function area(): BelongsTo
+    /**
+     * @return BelongsToMany<Area, $this>
+     */
+    public function areas(): BelongsToMany
     {
-        return $this->belongsTo(Area::class);
+        return $this->belongsToMany(Area::class)->withTimestamps();
     }
 
     /**
-     * How many unclosed tickets count against this user's ticket cap.
+     * How many unclosed tickets count against the ticket cap for a new ticket.
      *
-     * The cap is an area-wide budget, so a user with an area is measured against
-     * everything their area has pending. A user with no area has no budget to
-     * share and falls back to their own tickets, against that same number.
+     * The cap is an area-wide budget, so a ticket filed for an area is measured
+     * against everything that area has pending. Without an area there is no
+     * budget to share and the user falls back to their own tickets, against
+     * that same number.
      */
-    public function openTicketCountForLimit(): int
+    public function openTicketCountForLimit(?Area $area): int
     {
-        return $this->area?->tickets()->unclosed()->count()
+        return $area?->tickets()->unclosed()->count()
             ?? $this->tickets()->unclosed()->count();
-    }
-
-    /**
-     * Whether this user's ticket cap is shared with their area or their own.
-     */
-    public function ticketLimitIsPerArea(): bool
-    {
-        return $this->area_id !== null;
     }
 }

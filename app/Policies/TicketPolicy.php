@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Enums\TriageStatus;
 use App\Enums\ValidationStatus;
+use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
 use App\Models\User;
@@ -84,17 +85,17 @@ class TicketPolicy
     /**
      * Determine whether the user can create models.
      *
-     * The cap is evaluated against the user's area, so it stays finite no matter
-     * how many people the area has. A user with no area falls back to their own
-     * count against that same number.
+     * The cap is evaluated against the area the ticket is filed for, so it stays
+     * finite no matter how many people the area has. A ticket without an area
+     * falls back to the user's own count against that same number.
      */
-    public function create(User $user): bool
+    public function create(User $user, ?Area $area = null): bool
     {
         if ($user->isAdmin()) {
             return true;
         }
 
-        return $user->openTicketCountForLimit() < TicketSetting::current()->max_open_tickets_per_area;
+        return $user->openTicketCountForLimit($area) < TicketSetting::current()->max_open_tickets_per_area;
     }
 
     /**

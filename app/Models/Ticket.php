@@ -19,6 +19,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $user_id
+ * @property int|null $area_id
+ * @property Area|null $area
  * @property int|null $created_by
  * @property string $title
  * @property string|null $description
@@ -37,7 +39,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['user_id', 'created_by', 'title', 'description', 'importance', 'urgency', 'impact', 'category_id', 'assigned_to', 'status', 'triage_status', 'validation_status', 'resolution_rating', 'validated_at'])]
+#[Fillable(['user_id', 'area_id', 'created_by', 'title', 'description', 'importance', 'urgency', 'impact', 'category_id', 'assigned_to', 'status', 'triage_status', 'validation_status', 'resolution_rating', 'validated_at'])]
 
 class Ticket extends Model
 {
@@ -103,6 +105,14 @@ class Ticket extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The area the ticket was filed for, picked among its author's areas.
+     */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     public function category(): BelongsTo

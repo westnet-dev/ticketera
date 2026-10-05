@@ -33,16 +33,32 @@ test('the guide quotes the configured ticket cap and the area usage', function (
     TicketSetting::current()->update(['max_open_tickets_per_area' => 3]);
 
     $area = Area::factory()->create();
-    $client = User::factory()->create(['area_id' => $area->id]);
-    $teammate = User::factory()->create(['area_id' => $area->id]);
+    $client = User::factory()->withAreas($area)->create();
+    $teammate = User::factory()->withAreas($area)->create();
 
-    Ticket::factory()->for($teammate)->create(['status' => 'open']);
-    Ticket::factory()->for($client)->create(['status' => 'resolved']);
+    Ticket::factory()->for($teammate)->create(['area_id' => $area->id, 'status' => 'open']);
+    Ticket::factory()->for($client)->create(['area_id' => $area->id, 'status' => 'resolved']);
 
     $this->actingAs($client)
         ->get(route('documentation.index'))
         ->assertOk()
-        ->assertSee(__('Tu área tiene :count de :max tickets sin cerrar.', ['count' => 1, 'max' => 3]));
+        ->assertSee(__('El área :area tiene :count de :max tickets sin cerrar.', ['area' => $area->title, 'count' => 1, 'max' => 3]));
+});
+
+test('the guide quotes the usage of every area the user belongs to', function () {
+    TicketSetting::current()->update(['max_open_tickets_per_area' => 3]);
+
+    $sales = Area::factory()->create(['title' => 'Comercial']);
+    $support = Area::factory()->create(['title' => 'Técnica']);
+    $client = User::factory()->withAreas($sales, $support)->create();
+
+    Ticket::factory()->count(2)->for($client)->create(['area_id' => $sales->id, 'status' => 'open']);
+
+    $this->actingAs($client)
+        ->get(route('documentation.index'))
+        ->assertOk()
+        ->assertSee(__('El área :area tiene :count de :max tickets sin cerrar.', ['area' => 'Comercial', 'count' => 2, 'max' => 3]))
+        ->assertSee(__('El área :area tiene :count de :max tickets sin cerrar.', ['area' => 'Técnica', 'count' => 0, 'max' => 3]));
 });
 
 test('the sidebar links to the guide', function () {

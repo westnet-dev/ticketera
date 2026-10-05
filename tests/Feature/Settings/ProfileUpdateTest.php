@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Area;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -7,6 +8,24 @@ test('profile page is displayed', function () {
     $this->actingAs($user = User::factory()->create());
 
     $this->get(route('profile.edit'))->assertOk();
+});
+
+test('profile page shows every area of the user', function () {
+    $user = User::factory()
+        ->withAreas(Area::factory()->create(['title' => 'Comercial']), Area::factory()->create(['title' => 'Técnica']))
+        ->create();
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertSee('Comercial, Técnica');
+});
+
+test('profile page says when the user has no area', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertSee(__('Sin área asignada'));
 });
 
 test('profile information can be updated', function () {

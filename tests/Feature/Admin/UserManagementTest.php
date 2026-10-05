@@ -176,54 +176,151 @@ test('an admin cannot delete the last remaining admin', function () {
     expect(User::find($admin->id))->not->toBeNull();
 });
 
-test('an admin can assign, change and unassign a user\'s area', function () {
+test('an admin can create a user with several areas', function () {
+    Notification::fake();
+
+    $sales = Area::factory()->create();
+    $support = Area::factory()->create();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('users.admin-user-list')
+        ->set('name', 'Persona Multiárea')
+        ->set('email', 'multiarea@example.com')
+        ->set('role', 'client')
+        ->set('area_ids', [(string) $sales->id, (string) $support->id])
+        ->call('createUser')
+        ->assertHasNoErrors();
+
+    expect(User::where('email', 'multiarea@example.com')->sole()->areas->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$sales->id, $support->id])->sort()->values()->all());
+});
+
+test('an admin can create a user without areas', function () {
+    Notification::fake();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('users.admin-user-list')
+        ->set('name', 'Persona Sin Área')
+        ->set('email', 'sinarea@example.com')
+        ->set('role', 'client')
+        ->call('createUser')
+        ->assertHasNoErrors();
+
+    expect(User::where('email', 'sinarea@example.com')->sole()->areas)->toBeEmpty();
+});
+
+test('creating a user with a nonexistent area is rejected', function () {
+    Notification::fake();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('users.admin-user-list')
+        ->set('name', 'Persona Inválida')
+        ->set('email', 'invalida@example.com')
+        ->set('role', 'client')
+        ->set('area_ids', ['999999'])
+        ->call('createUser')
+        ->assertHasErrors(['area_ids.0']);
+
+    expect(User::where('email', 'invalida@example.com')->exists())->toBeFalse();
+});
+
+test('an admin can add, remove and clear a user\'s areas', function () {
     $admin = User::factory()->admin()->create();
-    $target = User::factory()->create();
-    $area = Area::factory()->create();
-    $otherArea = Area::factory()->create();
+    $sales = Area::factory()->create();
+    $support = Area::factory()->create();
+    $target = User::factory()->withAreas($sales)->create();
 
     $this->actingAs($admin);
 
     Livewire::test('users.admin-user-list')
-        ->call('updateArea', $target->id, (string) $area->id);
+        ->call('startEditingAreas', $target->id)
+        ->assertSet('editingAreaIds', [(string) $sales->id])
+        ->set('editingAreaIds', [(string) $sales->id, (string) $support->id])
+        ->call('updateAreas')
+        ->assertHasNoErrors();
 
-    expect($target->refresh()->area_id)->toBe($area->id);
+    expect($target->areas()->pluck('areas.id')->sort()->values()->all())
+        ->toBe(collect([$sales->id, $support->id])->sort()->values()->all());
 
     Livewire::test('users.admin-user-list')
-        ->call('updateArea', $target->id, (string) $otherArea->id);
+        ->call('startEditingAreas', $target->id)
+        ->set('editingAreaIds', [(string) $support->id])
+        ->call('updateAreas');
 
-    expect($target->refresh()->area_id)->toBe($otherArea->id);
+    expect($target->areas()->pluck('areas.id')->all())->toBe([$support->id]);
 
     Livewire::test('users.admin-user-list')
-        ->call('updateArea', $target->id, '');
+        ->call('startEditingAreas', $target->id)
+        ->set('editingAreaIds', [])
+        ->call('updateAreas');
 
-    expect($target->refresh()->area_id)->toBeNull();
+    expect($target->areas()->count())->toBe(0);
 });
 
-test('a client cannot change a user\'s area', function () {
+test('updating a user\'s areas with a nonexistent area is rejected', function () {
+    $area = Area::factory()->create();
+    $target = User::factory()->withAreas($area)->create();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingAreas', $target->id)
+        ->set('editingAreaIds', ['999999'])
+        ->call('updateAreas')
+        ->assertHasErrors(['editingAreaIds.0']);
+
+    expect($target->areas()->pluck('areas.id')->all())->toBe([$area->id]);
+});
+
+test('removing an area from a user does not change the area of their tickets', function () {
+    $sales = Area::factory()->create();
+    $target = User::factory()->withAreas($sales)->create();
+    $ticket = Ticket::factory()->for($target)->create(['area_id' => $sales->id]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingAreas', $target->id)
+        ->set('editingAreaIds', [])
+        ->call('updateAreas');
+
+    expect($ticket->fresh()->area_id)->toBe($sales->id);
+});
+
+test('a client cannot change a user\'s areas', function () {
     $client = User::factory()->create();
     $target = User::factory()->create();
-    $area = Area::factory()->create();
 
     $this->actingAs($client);
 
     Livewire::test('users.admin-user-list')
-        ->call('updateArea', $target->id, (string) $area->id)
+        ->call('startEditingAreas', $target->id)
         ->assertForbidden();
 
-    expect($target->refresh()->area_id)->toBeNull();
+    Livewire::test('users.admin-user-list')
+        ->set('editingAreasUserId', $target->id)
+        ->set('editingAreaIds', [(string) Area::factory()->create()->id])
+        ->call('updateAreas')
+        ->assertForbidden();
+
+    expect($target->areas()->count())->toBe(0);
 });
 
-test('the admin users list shows each user\'s assigned area', function () {
+test('the admin users list shows every area of each user', function () {
     $admin = User::factory()->admin()->create();
-    $area = Area::factory()->create(['title' => 'Soporte Técnico']);
-    User::factory()->create(['area_id' => $area->id]);
-    User::factory()->create(['area_id' => null]);
+    $support = Area::factory()->create(['title' => 'Soporte Técnico']);
+    $sales = Area::factory()->create(['title' => 'Comercial']);
+    User::factory()->withAreas($support, $sales)->create();
+    User::factory()->create();
 
     $this->actingAs($admin);
 
     Livewire::test('users.admin-user-list')
         ->assertSee('Soporte Técnico')
+        ->assertSee('Comercial')
         ->assertSee('Sin área');
 });
 
@@ -235,7 +332,7 @@ test('selecting the admin role pre-selects the Desarrollo area', function () {
 
     Livewire::test('users.admin-user-list')
         ->set('role', 'admin')
-        ->assertSet('area_id', (string) $developmentArea->id);
+        ->assertSet('area_ids', [(string) $developmentArea->id]);
 });
 
 test('an admin can override the pre-selected Desarrollo area before creating an admin user', function () {
@@ -251,13 +348,34 @@ test('an admin can override the pre-selected Desarrollo area before creating an 
         ->set('name', 'Nueva Persona')
         ->set('email', 'nueva.persona@example.com')
         ->set('role', 'admin')
-        ->set('area_id', (string) $otherArea->id)
+        ->set('area_ids', [(string) $otherArea->id])
         ->call('createUser')
         ->assertHasNoErrors();
 
     $user = User::where('email', 'nueva.persona@example.com')->first();
 
-    expect($user->area_id)->toBe($otherArea->id);
+    expect($user->areas->pluck('id')->all())->toBe([$otherArea->id]);
+});
+
+test('an admin can add areas on top of the pre-selected Desarrollo area', function () {
+    Notification::fake();
+
+    $admin = User::factory()->admin()->create();
+    $developmentArea = Area::factory()->create(['title' => 'Desarrollo']);
+    $supportArea = Area::factory()->create(['title' => 'Técnica']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->set('name', 'Nueva Persona')
+        ->set('email', 'nueva.persona@example.com')
+        ->set('role', 'admin')
+        ->set('area_ids', [(string) $developmentArea->id, (string) $supportArea->id])
+        ->call('createUser')
+        ->assertHasNoErrors();
+
+    expect(User::where('email', 'nueva.persona@example.com')->sole()->areas->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$developmentArea->id, $supportArea->id])->sort()->values()->all());
 });
 
 test('selecting the client role does not pre-select any area', function () {
@@ -268,5 +386,5 @@ test('selecting the client role does not pre-select any area', function () {
 
     Livewire::test('users.admin-user-list')
         ->set('role', 'client')
-        ->assertSet('area_id', '');
+        ->assertSet('area_ids', []);
 });

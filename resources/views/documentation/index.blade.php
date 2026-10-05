@@ -249,28 +249,32 @@
                 <section id="limite" class="flex scroll-mt-6 flex-col gap-3">
                     <flux:heading size="lg">{{ $sections['limite'] }}</flux:heading>
                     <flux:text>
-                        {{ __('Para que el equipo pueda atender todos los pedidos, hay un máximo de :max tickets sin cerrar a la vez. El límite se comparte entre todas las personas de un mismo área; si no tenés área asignada, se cuenta sobre tus propios tickets.', ['max' => $maxOpenTickets]) }}
+                        {{ __('Para que el equipo pueda atender todos los pedidos, hay un máximo de :max tickets sin cerrar a la vez. El límite se comparte entre todos los tickets de un mismo área. Si pertenecés a más de un área, al crear un ticket elegís para cuál es y cuenta para esa; si no tenés área asignada, se cuenta sobre tus propios tickets.', ['max' => $maxOpenTickets]) }}
                     </flux:text>
                     <flux:text>
                         {{ __('Cuentan los tickets Abiertos, En Progreso, Pausados y los que esperan revisión inicial. Los borradores, resueltos y cancelados no cuentan.') }}
                     </flux:text>
 
                     @unless (auth()->user()->isAdmin())
-                        <flux:callout
-                            icon="chart-bar"
-                            :color="$openTicketCount >= $maxOpenTickets ? 'red' : 'zinc'"
-                        >
-                            <flux:callout.heading>
-                                {{ $limitIsPerArea
-                                    ? __('Tu área tiene :count de :max tickets sin cerrar.', ['count' => $openTicketCount, 'max' => $maxOpenTickets])
-                                    : __('Tenés :count de :max tickets sin cerrar.', ['count' => $openTicketCount, 'max' => $maxOpenTickets]) }}
-                            </flux:callout.heading>
-                            @if ($openTicketCount >= $maxOpenTickets)
-                                <flux:callout.text>
-                                    {{ __('Mientras el límite esté completo no vas a poder crear ni enviar tickets nuevos. Podés seguir guardando borradores.') }}
-                                </flux:callout.text>
-                            @endif
-                        </flux:callout>
+                        @foreach ($ticketUsage as $usage)
+                            <flux:callout
+                                icon="chart-bar"
+                                :color="$usage['count'] >= $maxOpenTickets ? 'red' : 'zinc'"
+                            >
+                                <flux:callout.heading>
+                                    {{ $usage['area'] !== null
+                                        ? __('El área :area tiene :count de :max tickets sin cerrar.', ['area' => $usage['area'], 'count' => $usage['count'], 'max' => $maxOpenTickets])
+                                        : __('Tenés :count de :max tickets sin cerrar.', ['count' => $usage['count'], 'max' => $maxOpenTickets]) }}
+                                </flux:callout.heading>
+                                @if ($usage['count'] >= $maxOpenTickets)
+                                    <flux:callout.text>
+                                        {{ $usage['area'] !== null
+                                            ? __('Mientras el límite de esta área esté completo no vas a poder crear ni enviar tickets nuevos para ella. Podés seguir guardando borradores.')
+                                            : __('Mientras el límite esté completo no vas a poder crear ni enviar tickets nuevos. Podés seguir guardando borradores.') }}
+                                    </flux:callout.text>
+                                @endif
+                            </flux:callout>
+                        @endforeach
                     @endunless
                 </section>
 
@@ -344,7 +348,7 @@
                                 [__('Cambio de estado'), __('Desde el detalle de un ticket aprobado cambiás su estado. Al pasarlo a Resuelto se le pide validación al autor; si lo sacás de Resuelto antes de que responda, esa solicitud se retira.')],
                                 [__('Mis tickets'), __('Muestra los tickets que cargaste para vos y los que tenés asignados.')],
                                 [__('Crear a nombre de un cliente'), __('Al crear un ticket podés elegir un cliente como autor. El ticket queda aprobado de entrada, no puede guardarse como borrador y la validación la hace el cliente. Los tickets de administradores no tienen límite.')],
-                                [__('Usuarios'), __('Alta de usuarios, cambio de rol (cliente o admin), asignación de área, restablecimiento de contraseña y baja.')],
+                                [__('Usuarios'), __('Alta de usuarios, cambio de rol (cliente o admin), asignación de una o varias áreas, restablecimiento de contraseña y baja.')],
                                 [__('Áreas'), __('Creá, renombrá o eliminá áreas y asigná un área a los usuarios que todavía no tienen. El límite de tickets se calcula por área.')],
                                 [__('Configuración del límite'), __('En Herramientas > Tickets definís el máximo de tickets sin cerrar por área (hoy: :max). Aplica por igual a todas las áreas.', ['max' => $maxOpenTickets])],
                             ] as [$title, $body])

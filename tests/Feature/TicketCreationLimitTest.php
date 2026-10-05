@@ -10,7 +10,7 @@ use Livewire\Livewire;
 /**
  * The cap is an area-wide budget. A user with no area has no budget to share and
  * falls back to counting their own tickets, which is what this file covers —
- * `User::factory()` leaves `area_id` null. The per-area rule lives in
+ * `User::factory()` creates users without areas. The per-area rule lives in
  * `TicketAreaLimitTest`.
  */
 test('a client without an area under the limit can create a new ticket', function () {

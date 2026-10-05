@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\Role;
+use App\Models\Area;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -53,6 +54,14 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'role' => Role::Admin,
         ]);
+    }
+
+    /**
+     * Indicate that the user belongs to the given areas.
+     */
+    public function withAreas(Area ...$areas): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->areas()->attach(collect($areas)->pluck('id')));
     }
 
     /**

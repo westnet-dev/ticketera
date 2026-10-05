@@ -66,7 +66,7 @@ new class extends Component
 
     public function deleteArea(int $areaId): void
     {
-        $area = Area::withCount('users')->findOrFail($areaId);
+        $area = Area::findOrFail($areaId);
 
         Gate::authorize('delete', $area);
 
@@ -79,15 +79,15 @@ new class extends Component
 
         Gate::authorize('updateArea', $target);
 
-        $target->update(['area_id' => $areaId]);
+        $target->areas()->syncWithoutDetaching([Area::findOrFail($areaId)->id]);
     }
 
     public function with(): array
     {
         return [
-            'areas' => Area::withCount('users')->orderBy('title')->paginate(20),
+            'areas' => Area::withCount(['users', 'tickets'])->orderBy('title')->paginate(20),
             'allAreas' => Area::orderBy('title')->get(),
-            'unassignedUsers' => User::whereNull('area_id')->orderBy('name')->get(),
+            'unassignedUsers' => User::doesntHave('areas')->orderBy('name')->get(),
         ];
     }
 };
@@ -140,7 +140,8 @@ new class extends Component
                             <flux:button
                                 size="sm"
                                 variant="danger"
-                                :disabled="$area->users_count > 0"
+                                :disabled="$area->users_count > 0 || $area->tickets_count > 0"
+                                :title="$area->users_count > 0 || $area->tickets_count > 0 ? __('No se puede eliminar un área con usuarios o tickets.') : null"
                                 wire:click="deleteArea({{ $area->id }})"
                                 wire:confirm="{{ __('¿Eliminar el área :title?', ['title' => $area->title]) }}"
                             >

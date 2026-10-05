@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Area;
+use App\Models\Ticket;
 use App\Models\User;
 use Database\Seeders\AreaSeeder;
 use Livewire\Livewire;
@@ -78,7 +79,7 @@ test('an admin can rename an area', function () {
 test('an admin cannot delete an area with assigned users', function () {
     $admin = User::factory()->admin()->create();
     $area = Area::factory()->create();
-    User::factory()->create(['area_id' => $area->id]);
+    User::factory()->withAreas($area, Area::factory()->create())->create();
 
     $this->actingAs($admin);
 
@@ -89,7 +90,21 @@ test('an admin cannot delete an area with assigned users', function () {
     expect(Area::find($area->id))->not->toBeNull();
 });
 
-test('an admin can delete an area with no assigned users', function () {
+test('an admin cannot delete an area that still has tickets', function () {
+    $admin = User::factory()->admin()->create();
+    $area = Area::factory()->create();
+    Ticket::factory()->create(['area_id' => $area->id]);
+
+    $this->actingAs($admin);
+
+    Livewire::test('areas.admin-area-list')
+        ->call('deleteArea', $area->id)
+        ->assertForbidden();
+
+    expect(Area::find($area->id))->not->toBeNull();
+});
+
+test('an admin can delete an area with no assigned users nor tickets', function () {
     $admin = User::factory()->admin()->create();
     $area = Area::factory()->create();
 
@@ -111,20 +126,33 @@ test('the area seeder creates the Desarrollo area without duplicating it', funct
 test('the areas admin screen lists users without an assigned area', function () {
     $admin = User::factory()->admin()->create();
     $area = Area::factory()->create();
-    $withArea = User::factory()->create(['area_id' => $area->id]);
-    $withoutArea = User::factory()->create(['area_id' => null]);
+    $withArea = User::factory()->withAreas($area)->create();
+    $withSeveralAreas = User::factory()->withAreas($area, Area::factory()->create())->create();
+    $withoutArea = User::factory()->create();
 
     $this->actingAs($admin);
 
     Livewire::test('areas.admin-area-list')
         ->assertSee($withoutArea->name)
-        ->assertDontSee($withArea->name);
+        ->assertDontSee($withArea->name)
+        ->assertDontSee($withSeveralAreas->name);
+});
+
+test('the areas admin screen counts every user of an area', function () {
+    $admin = User::factory()->admin()->create();
+    $area = Area::factory()->create();
+    User::factory()->count(2)->withAreas($area)->create();
+    User::factory()->withAreas($area, Area::factory()->create())->create();
+
+    $this->actingAs($admin);
+
+    expect(Area::withCount('users')->find($area->id)->users_count)->toBe(3);
 });
 
 test('an admin can assign an area to a user from the unassigned users list', function () {
     $admin = User::factory()->admin()->create();
     $area = Area::factory()->create();
-    $target = User::factory()->create(['area_id' => null]);
+    $target = User::factory()->create();
 
     $this->actingAs($admin);
 
@@ -132,13 +160,13 @@ test('an admin can assign an area to a user from the unassigned users list', fun
         ->call('assignArea', $target->id, $area->id)
         ->assertDontSee($target->name);
 
-    expect($target->refresh()->area_id)->toBe($area->id);
+    expect($target->areas()->pluck('areas.id')->all())->toBe([$area->id]);
 });
 
 test('a client cannot assign an area from the unassigned users list', function () {
     $client = User::factory()->create();
     $area = Area::factory()->create();
-    $target = User::factory()->create(['area_id' => null]);
+    $target = User::factory()->create();
 
     $this->actingAs($client);
 
@@ -146,5 +174,5 @@ test('a client cannot assign an area from the unassigned users list', function (
         ->call('assignArea', $target->id, $area->id)
         ->assertForbidden();
 
-    expect($target->refresh()->area_id)->toBeNull();
+    expect($target->areas()->count())->toBe(0);
 });
