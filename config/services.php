@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'linear' => [
+        'key' => env('LINEAR_API_KEY'),
+        'url' => env('LINEAR_API_URL', 'https://api.linear.app/graphql'),
+    ],
+
 ];
