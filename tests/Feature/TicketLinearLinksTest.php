@@ -212,3 +212,27 @@ test('an admin can remove a manual link but not one detected from linear', funct
 
     expect($ticket->linearLinks()->pluck('id')->all())->toBe([$detected->id]);
 });
+
+test('the admin backlog shows the cached linear state of each ticket without calling linear', function () {
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    TicketLinearLink::factory()->for($ticket)->create(['identifier' => 'GES-911', 'state_name' => 'In Review']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.admin-ticket-list')
+        ->assertSee('GES-911 · In Review');
+
+    Http::assertNothingSent();
+});
+
+test('clients never see linear links in their ticket list', function () {
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->for($client)->create(['status' => 'open']);
+    TicketLinearLink::factory()->for($ticket)->create(['identifier' => 'GES-911']);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.ticket-list')
+        ->assertSee($ticket->title)
+        ->assertDontSee('GES-911');
+});
