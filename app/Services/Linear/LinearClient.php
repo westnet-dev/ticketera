@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
  *
  * Lookups go through the issues() connection instead of issue(id:): a missing issue there
  * comes back as an empty list, not as an error that would have to be told apart from an outage.
+ * They include archived issues, since Linear archives closed issues on its own after a while.
  */
 class LinearClient
 {
@@ -65,7 +66,7 @@ class LinearClient
     public function issuesAttachedToUrl(string $url): array
     {
         $data = $this->query(
-            'query AttachedIssues($url: String!) { attachmentsForURL(url: $url) { nodes { issue { '.self::ISSUE_FIELDS.' } } } }',
+            'query AttachedIssues($url: String!) { attachmentsForURL(url: $url, includeArchived: true) { nodes { issue { '.self::ISSUE_FIELDS.' } } } }',
             ['url' => $url],
         );
 
@@ -81,7 +82,7 @@ class LinearClient
     private function issues(array $filter, int $first): array
     {
         $data = $this->query(
-            'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first) { nodes { '.self::ISSUE_FIELDS.' } } }',
+            'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first, includeArchived: true) { nodes { '.self::ISSUE_FIELDS.' } } }',
             ['filter' => $filter, 'first' => $first],
         );
 

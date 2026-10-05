@@ -150,7 +150,7 @@ test('opening the ticket links the issues that attach its url in linear', functi
     Http::assertSent(fn (Request $request) => ($request['variables']['url'] ?? null) === $ticket->canonicalUrl());
 });
 
-test('opening the ticket refreshes the cached state of its links', function () {
+test('opening the ticket refreshes the cached state of its links, even for an issue moved to another team', function () {
     $ticket = Ticket::factory()->create(['status' => 'open']);
     $link = TicketLinearLink::factory()->for($ticket)->create([
         'linear_issue_id' => 'uuid-ges-911',
@@ -158,13 +158,14 @@ test('opening the ticket refreshes the cached state of its links', function () {
         'state_name' => 'Todo',
         'state_type' => 'unstarted',
     ]);
-    fakeLinear(issueNodes: [linearIssueNode(stateName: 'Done', stateType: 'completed')]);
+    fakeLinear(issueNodes: [[...linearIssueNode('OPS-12', 'Done', 'completed'), 'id' => 'uuid-ges-911']]);
 
     $this->actingAs(User::factory()->admin()->create());
 
     Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
 
     expect($link->fresh())
+        ->identifier->toBe('OPS-12')
         ->state_name->toBe('Done')
         ->state_type->toBe('completed');
 });
@@ -235,4 +236,16 @@ test('clients never see linear links in their ticket list', function () {
     Livewire::test('tickets.ticket-list')
         ->assertSee($ticket->title)
         ->assertDontSee('GES-911');
+});
+
+test('the panel offers the exact ticket url to attach in linear and shows how fresh each link is', function () {
+    fakeLinear();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    TicketLinearLink::factory()->for($ticket)->create(['synced_at' => now()->subHours(3)]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->assertSeeHtml('value="'.$ticket->canonicalUrl().'"')
+        ->assertSee(__('Actualizado :time', ['time' => now()->subHours(3)->diffForHumans()]));
 });

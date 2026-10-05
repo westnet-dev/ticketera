@@ -160,6 +160,8 @@ new class extends Component
                         <span>· {{ __('Vinculado desde Linear') }}</span>
                     @endif
                 </div>
+                {{-- A deleted issue, or one the key lost access to, stops refreshing; the age makes that visible. --}}
+                <p class="mt-0.5 text-xs text-neutral-400">{{ __('Actualizado :time', ['time' => $link->synced_at->diffForHumans()]) }}</p>
             </div>
             @unless ($link->wasDetectedFromLinear())
                 <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="unlink({{ $link->id }})" :aria-label="__('Desvincular :identifier', ['identifier' => $link->identifier])" />
@@ -180,8 +182,9 @@ new class extends Component
     </form>
 
     <div class="flex flex-col gap-1 text-xs text-neutral-500 dark:text-neutral-400">
-        <p>{{ __('Para vincularlo desde Linear, agregá este link al issue con Ctrl+L:') }}</p>
-        <code class="break-all">{{ $ticket->canonicalUrl() }}</code>
+        {{-- Linear matches the attached URL exactly: a trailing slash or another host is not detected. --}}
+        <p>{{ __('Para vincularlo desde Linear, copiá este link y agregalo al issue con Ctrl+L:') }}</p>
+        <flux:input size="sm" readonly copyable :value="$ticket->canonicalUrl()" :aria-label="__('Link del ticket')" />
         <flux:button size="xs" variant="ghost" icon="arrow-path" wire:click="refresh" class="self-start">
             {{ __('Actualizar desde Linear') }}
         </flux:button>

@@ -50,6 +50,17 @@ test('it lists the issues attached to a url once each', function () {
     Http::assertSent(fn (Request $request) => $request['variables'] === ['url' => 'https://tickets.example.com/tickets/7']);
 });
 
+test('lookups include archived issues, which Linear archives on its own once closed', function () {
+    fakeLinear();
+    $linear = app(LinearClient::class);
+
+    $linear->findByIdentifier('GES-911');
+    $linear->issuesAttachedToUrl('https://tickets.example.com/tickets/7');
+
+    Http::assertSentCount(2);
+    Http::assertNotSent(fn (Request $request) => ! str_contains($request['query'], 'includeArchived: true'));
+});
+
 test('fetching no ids sends no request', function () {
     expect(app(LinearClient::class)->findByIds([]))->toBe([]);
 
