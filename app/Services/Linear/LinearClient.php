@@ -12,11 +12,12 @@ use Illuminate\Support\Facades\Log;
  *
  * Lookups go through the issues() connection instead of issue(id:): a missing issue there
  * comes back as an empty list, not as an error that would have to be told apart from an outage.
- * They include archived issues, since Linear archives closed issues on its own after a while.
+ * They include archived issues, since Linear archives closed issues on its own after a while,
+ * but leave out deleted ones, which stay in the trash as archived issues for 30 days.
  */
 class LinearClient
 {
-    public const ISSUE_FIELDS = 'id identifier title url state { name type } assignee { name }';
+    public const ISSUE_FIELDS = 'id identifier title url trashed state { name type } assignee { name }';
 
     public function __construct(
         #[Config('services.linear.key')] private ?string $apiKey,
@@ -98,7 +99,7 @@ class LinearClient
         $issues = [];
 
         foreach ($nodes as $node) {
-            if (is_array($node)) {
+            if (is_array($node) && ($node['trashed'] ?? false) !== true) {
                 $issue = LinearIssue::fromNode($node);
                 $issues[$issue->id] = $issue;
             }
@@ -135,6 +136,7 @@ class LinearClient
             Log::warning('Linear API query failed.', [
                 'status' => $response->status(),
                 'errors' => $response->json('errors.*.message'),
+                'codes' => $response->json('errors.*.extensions.code'),
             ]);
 
             throw new LinearUnavailableException("Linear answered with HTTP {$response->status()}.");

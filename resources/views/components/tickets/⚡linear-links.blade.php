@@ -70,7 +70,7 @@ new class extends Component
     }
 
     /**
-     * Only manual links can be removed: a link detected from Linear would come back on the next sync.
+     * Only manual links can be removed: a link detected from Linear follows its attachment there.
      */
     public function unlink(int $linkId): void
     {
@@ -119,16 +119,24 @@ new class extends Component
                 }
             }
 
-            foreach ($linear->issuesAttachedToUrl($this->ticket->canonicalUrl()) as $issue) {
+            $attached = $linear->issuesAttachedToUrl($this->ticket->canonicalUrl());
+
+            foreach ($attached as $issue) {
                 $this->ticket->linkLinearIssue($issue, LinearLinkSource::Attachment);
             }
+
+            // The attachment was removed in Linear, or its issue deleted.
+            $this->ticket->linearLinks()
+                ->where('source', LinearLinkSource::Attachment)
+                ->whereNotIn('linear_issue_id', array_column($attached, 'id'))
+                ->delete();
 
             $this->linearUnavailable = false;
         } catch (LinearUnavailableException) {
             $this->linearUnavailable = true;
 
-            // Let the next page view try again instead of waiting out the interval.
-            Cache::forget($this->syncCacheKey());
+            // Retry soon instead of waiting out the interval, without calling Linear on every view.
+            Cache::put($this->syncCacheKey(), true, now()->addMinute());
         }
     }
 

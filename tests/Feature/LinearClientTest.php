@@ -55,10 +55,31 @@ test('lookups include archived issues, which Linear archives on its own once clo
     $linear = app(LinearClient::class);
 
     $linear->findByIdentifier('GES-911');
+    $linear->findByIds(['uuid-ges-911']);
     $linear->issuesAttachedToUrl('https://tickets.example.com/tickets/7');
 
-    Http::assertSentCount(2);
+    Http::assertSentCount(3);
     Http::assertNotSent(fn (Request $request) => ! str_contains($request['query'], 'includeArchived: true'));
+});
+
+test('it fetches issues by their linear ids', function () {
+    fakeLinear(issueNodes: [linearIssueNode('GES-911'), linearIssueNode('GES-120'), linearIssueNode('GES-7')]);
+
+    $issues = app(LinearClient::class)->findByIds(['uuid-ges-911', 'uuid-ges-120']);
+
+    expect(array_column($issues, 'identifier'))->toBe(['GES-911', 'GES-120']);
+
+    Http::assertSent(fn (Request $request) => $request['variables'] === ['filter' => ['id' => ['in' => ['uuid-ges-911', 'uuid-ges-120']]], 'first' => 2]);
+});
+
+test('it leaves out issues deleted in linear, which stay in the trash as archived', function () {
+    $trashed = [...linearIssueNode('GES-120'), 'trashed' => true];
+
+    fakeLinear(issueNodes: [$trashed], attachedNodes: [$trashed, linearIssueNode('GES-911')]);
+    $linear = app(LinearClient::class);
+
+    expect($linear->findByIds(['uuid-ges-120']))->toBe([])
+        ->and(array_column($linear->issuesAttachedToUrl('https://tickets.example.com/tickets/7'), 'identifier'))->toBe(['GES-911']);
 });
 
 test('fetching no ids sends no request', function () {
@@ -98,4 +119,5 @@ test('it extracts the issue identifier from what an admin pastes', function (str
     'issue url without slug' => ['https://linear.app/acme/issue/GES-911?foo=bar', 'GES-911'],
     'free text' => ['el ticket de facturación', null],
     'non issue url' => ['https://example.com/report-12', null],
+    'number beyond linear range' => ['GES-99999999999999999999', null],
 ]);

@@ -182,7 +182,7 @@ test('reopening the ticket within the sync interval does not call linear again',
     Http::assertSentCount(1);
 });
 
-test('when linear is down the panel keeps the last known state and retries on the next view', function () {
+test('when linear is down the panel keeps the last known state and retries a minute later', function () {
     Http::fake(['api.linear.app/*' => Http::failedConnection()]);
     $ticket = Ticket::factory()->create(['status' => 'open']);
     TicketLinearLink::factory()->for($ticket)->create(['identifier' => 'GES-911']);
@@ -196,14 +196,81 @@ test('when linear is down the panel keeps the last known state and retries on th
 
     Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
 
+    Http::assertSentCount(1);
+
+    $this->travel(2)->minutes();
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
     Http::assertSentCount(2);
 });
 
-test('an admin can remove a manual link but not one detected from linear', function () {
+test('a failure while detecting keeps the links already refreshed', function () {
+    Http::fake(['api.linear.app/*' => fn (Request $request) => str_contains($request['query'], 'attachmentsForURL')
+        ? Http::response('Bad gateway', 502)
+        : Http::response(['data' => ['issues' => ['nodes' => [linearIssueNode('GES-911', 'Done', 'completed')]]]]),
+    ]);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    $link = TicketLinearLink::factory()->for($ticket)->create(['linear_issue_id' => 'uuid-ges-911', 'state_name' => 'Todo']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->assertSet('linearUnavailable', true);
+
+    expect($link->fresh()->state_name)->toBe('Done');
+});
+
+test('refreshing syncs again within the sync interval', function () {
     fakeLinear();
     $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->call('refresh');
+
+    Http::assertSentCount(2);
+});
+
+test('a detected link goes away once linear no longer attaches the ticket url, a manual one stays', function () {
+    fakeLinear(issueNodes: [linearIssueNode('GES-120'), linearIssueNode('GES-121')]);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    $manual = TicketLinearLink::factory()->for($ticket)->create(['linear_issue_id' => 'uuid-ges-121']);
+    TicketLinearLink::factory()->detected()->for($ticket)->create(['linear_issue_id' => 'uuid-ges-120']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
+    expect($ticket->linearLinks()->pluck('id')->all())->toBe([$manual->id]);
+});
+
+test('an admin cannot remove a link of another ticket', function () {
+    fakeLinear();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    $other = TicketLinearLink::factory()->create();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->call('unlink', $other->id);
+
+    expect($other->fresh())->not->toBeNull();
+});
+
+test('the canonical url uses APP_URL whatever host the page was opened on', function () {
+    config(['app.url' => 'https://tickets.example.com/']);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    expect($ticket->canonicalUrl())->toBe("https://tickets.example.com/tickets/{$ticket->id}");
+});
+
+test('an admin can remove a manual link but not one detected from linear', function () {
+    fakeLinear(attachedNodes: [linearIssueNode('GES-120')]);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
     $manual = TicketLinearLink::factory()->for($ticket)->create();
-    $detected = TicketLinearLink::factory()->detected()->for($ticket)->create();
+    $detected = TicketLinearLink::factory()->detected()->for($ticket)->create(['linear_issue_id' => 'uuid-ges-120']);
 
     $this->actingAs(User::factory()->admin()->create());
 

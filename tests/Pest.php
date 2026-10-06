@@ -69,15 +69,24 @@ function linearIssueNode(string $identifier = 'GES-911', string $stateName = 'In
 }
 
 /**
- * Fake Linear's GraphQL API: issue lookups answer with $issueNodes, URL attachment lookups with $attachedNodes.
+ * Fake Linear's GraphQL API: issue lookups answer with the $issueNodes matching their filter, URL attachment lookups with $attachedNodes.
  *
  * @param  list<array<string, mixed>>  $issueNodes
  * @param  list<array<string, mixed>>  $attachedNodes
  */
 function fakeLinear(array $issueNodes = [], array $attachedNodes = []): void
 {
-    Http::fake(['api.linear.app/*' => fn (Request $request) => str_contains($request['query'], 'attachmentsForURL')
-        ? Http::response(['data' => ['attachmentsForURL' => ['nodes' => array_map(fn (array $node) => ['issue' => $node], $attachedNodes)]]])
-        : Http::response(['data' => ['issues' => ['nodes' => $issueNodes]]]),
-    ]);
+    Http::fake(['api.linear.app/*' => function (Request $request) use ($issueNodes, $attachedNodes) {
+        if (str_contains($request['query'], 'attachmentsForURL')) {
+            return Http::response(['data' => ['attachmentsForURL' => ['nodes' => array_map(fn (array $node) => ['issue' => $node], $attachedNodes)]]]);
+        }
+
+        $filter = $request['variables']['filter'];
+
+        $matches = array_filter($issueNodes, fn (array $node) => isset($filter['id'])
+            ? in_array($node['id'], $filter['id']['in'], true)
+            : $node['identifier'] === $filter['team']['key']['eq'].'-'.$filter['number']['eq']);
+
+        return Http::response(['data' => ['issues' => ['nodes' => array_values($matches)]]]);
+    }]);
 }

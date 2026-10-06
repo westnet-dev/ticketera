@@ -46,8 +46,8 @@ final readonly class LinearIssue
 
         // In a URL only the /issue/ segment counts: the workspace slug could look like an identifier too.
         $pattern = str_contains($reference, '/')
-            ? '~/issue/([a-z][a-z0-9]*-\d+)(?:[/?#]|$)~i'
-            : '~^([a-z][a-z0-9]*-\d+)$~i';
+            ? '~/issue/([a-z][a-z0-9]*-\d{1,9})(?:[/?#]|$)~i'
+            : '~^([a-z][a-z0-9]*-\d{1,9})$~i';
 
         return preg_match($pattern, $reference, $matches) === 1 ? strtoupper($matches[1]) : null;
     }
