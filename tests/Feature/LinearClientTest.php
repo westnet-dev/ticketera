@@ -99,6 +99,20 @@ test('it reports Linear as unavailable when the request fails', function (Closur
     'connection failure' => fn () => Http::failedConnection(),
 ])->throws(LinearUnavailableException::class);
 
+test('a malformed API url is reported as Linear being unavailable', function () {
+    config(['services.linear.url' => 'https://api.linear app/graphql']);
+
+    app(LinearClient::class)->findByIdentifier('GES-911');
+})->throws(LinearUnavailableException::class);
+
+test('it only keeps issue urls that point to linear', function (string $url, string $kept) {
+    expect(LinearIssue::fromNode([...linearIssueNode(), 'url' => $url])->url)->toBe($kept);
+})->with([
+    'linear url' => ['https://linear.app/acme/issue/GES-911', 'https://linear.app/acme/issue/GES-911'],
+    'script url' => ['javascript:alert(1)', ''],
+    'other host' => ['https://linear.app.example.com/issue/GES-911', ''],
+]);
+
 test('without an API key it never calls Linear', function () {
     config(['services.linear.key' => null]);
 

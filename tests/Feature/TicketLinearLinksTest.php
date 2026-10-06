@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Linear\LinearIssue;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -316,3 +317,34 @@ test('the panel offers the exact ticket url to attach in linear and shows how fr
         ->assertSeeHtml('value="'.$ticket->canonicalUrl().'"')
         ->assertSee(__('Actualizado :time', ['time' => now()->subHours(3)->diffForHumans()]));
 });
+
+test('an admin cannot call linear more than the per minute limit, even batching actions in one request', function () {
+    fakeLinear();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    $component = Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
+    foreach (range(1, 25) as $attempt) {
+        $component->call('refresh');
+    }
+
+    Http::assertSentCount(21);
+
+    $component->set('reference', 'GES-911')
+        ->call('link')
+        ->assertHasErrors('reference');
+
+    Http::assertSentCount(21);
+});
+
+test('the browser cannot change whether linear is shown as unavailable', function () {
+    fakeLinear();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket])
+        ->set('linearUnavailable', true);
+})->throws(CannotUpdateLockedPropertyException::class);

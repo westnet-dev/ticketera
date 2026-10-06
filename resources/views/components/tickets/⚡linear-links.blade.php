@@ -7,6 +7,8 @@ use App\Services\Linear\LinearIssue;
 use App\Services\Linear\LinearUnavailableException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 new class extends Component
@@ -16,10 +18,16 @@ new class extends Component
      */
     private const SYNC_EVERY_MINUTES = 10;
 
+    /**
+     * Actions that call Linear per admin and minute: one request can batch many calls, and the API rate limit is shared by the key.
+     */
+    private const ACTIONS_PER_MINUTE = 20;
+
     public Ticket $ticket;
 
     public string $reference = '';
 
+    #[Locked]
     public bool $linearUnavailable = false;
 
     public function mount(LinearClient $linear): void
@@ -41,6 +49,12 @@ new class extends Component
         Gate::authorize('manageLinearLinks', $this->ticket);
 
         $this->validate(['reference' => ['required', 'string', 'max:2048']]);
+
+        if ($this->throttled()) {
+            $this->addError('reference', __('Demasiados intentos. Probá de nuevo en un minuto.'));
+
+            return;
+        }
 
         $identifier = LinearIssue::identifierFrom($this->reference);
 
@@ -85,6 +99,10 @@ new class extends Component
     public function refresh(LinearClient $linear): void
     {
         Gate::authorize('manageLinearLinks', $this->ticket);
+
+        if ($this->throttled()) {
+            return;
+        }
 
         Cache::put($this->syncCacheKey(), true, now()->addMinutes(self::SYNC_EVERY_MINUTES));
 
@@ -138,6 +156,19 @@ new class extends Component
             // Retry soon instead of waiting out the interval, without calling Linear on every view.
             Cache::put($this->syncCacheKey(), true, now()->addMinute());
         }
+    }
+
+    private function throttled(): bool
+    {
+        $key = 'linear-links:actions:'.auth()->id();
+
+        if (RateLimiter::tooManyAttempts($key, self::ACTIONS_PER_MINUTE)) {
+            return true;
+        }
+
+        RateLimiter::hit($key);
+
+        return false;
     }
 
     private function syncCacheKey(): string

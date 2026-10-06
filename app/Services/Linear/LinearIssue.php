@@ -25,12 +25,14 @@ final readonly class LinearIssue
     public static function fromNode(array $node): self
     {
         $assigneeName = data_get($node, 'assignee.name');
+        $url = (string) data_get($node, 'url');
 
         return new self(
             id: (string) data_get($node, 'id'),
             identifier: (string) data_get($node, 'identifier'),
             title: (string) data_get($node, 'title'),
-            url: (string) data_get($node, 'url'),
+            // Rendered as a link, so only Linear's own URLs are kept.
+            url: str_starts_with($url, 'https://linear.app/') ? $url : '',
             stateName: (string) data_get($node, 'state.name'),
             stateType: (string) data_get($node, 'state.type'),
             assigneeName: is_string($assigneeName) ? $assigneeName : null,

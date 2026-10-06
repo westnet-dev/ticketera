@@ -3,9 +3,10 @@
 namespace App\Services\Linear;
 
 use Illuminate\Container\Attributes\Config;
-use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\HttpClientException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 /**
  * Read-only access to Linear's GraphQL API with a personal API key.
@@ -126,7 +127,8 @@ class LinearClient
                 ->timeout(5)
                 ->connectTimeout(3)
                 ->post($this->url, ['query' => $query, 'variables' => $variables]);
-        } catch (ConnectionException $exception) {
+        } catch (HttpClientException|InvalidArgumentException $exception) {
+            // Caught so the request, with the key in its headers, never reaches the error page.
             throw new LinearUnavailableException('Linear could not be reached.', previous: $exception);
         }
 
