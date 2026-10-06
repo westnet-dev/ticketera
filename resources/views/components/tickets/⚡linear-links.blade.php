@@ -6,6 +6,8 @@ use App\Models\TicketLinearLink;
 use App\Services\Linear\LinearClient;
 use App\Services\Linear\LinearIssue;
 use App\Services\Linear\LinearUnavailableException;
+use App\Services\Linear\TicketIssueCreator;
+use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Facades\Cache;
@@ -99,6 +101,23 @@ new class extends Component
             ->delete();
     }
 
+    public function createIssue(TicketIssueCreator $creator): void
+    {
+        Gate::authorize('createLinearIssue', $this->ticket);
+
+        try {
+            $link = $creator->create($this->ticket, auth()->user());
+        } catch (LinearUnavailableException) {
+            Flux::toast(variant: 'danger', text: __('No se pudo crear el issue en Linear. Probá de nuevo en unos minutos.'));
+
+            return;
+        }
+
+        Flux::toast(variant: 'success', text: $link->wasRecentlyCreated
+            ? __('Se creó :identifier en Linear.', ['identifier' => $link->identifier])
+            : __('El ticket ya estaba vinculado a :identifier.', ['identifier' => $link->identifier]));
+    }
+
     public function refresh(LinearClient $linear): void
     {
         Gate::authorize('manageLinearLinks', $this->ticket);
@@ -116,6 +135,7 @@ new class extends Component
     {
         return [
             'links' => $this->ticket->linearLinks()->get(),
+            'canCreateIssue' => app(LinearClient::class)->canCreateIssues() && Gate::allows('createLinearIssue', $this->ticket),
         ];
     }
 
@@ -231,6 +251,17 @@ new class extends Component
         </div>
     @empty
         <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Sin issues de Linear vinculados.') }}</p>
+        @if ($canCreateIssue)
+            <flux:button
+                size="sm"
+                icon="linear"
+                wire:click="createIssue"
+                wire:confirm="{{ __('¿Crear un issue en Linear para TK-:id?', ['id' => $ticket->id]) }}"
+                class="self-start"
+            >
+                {{ __('Crear issue en Linear') }}
+            </flux:button>
+        @endif
     @endforelse
 
     <form wire:submit="link" class="flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-700">
