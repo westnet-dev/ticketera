@@ -4,7 +4,7 @@
 su - deploy
 export REL=/var/www/ticketera/releases/$(date +%Y%m%d%H%M%S)
 
-git clone --depth 1 --branch main git@github.com:leanrobert/ticketera.git $REL
+git clone --depth 1 --branch main git@github.com:westnet-dev/ticketera.git $REL
 cd $REL
 git rev-parse --short HEAD
 
@@ -86,8 +86,12 @@ guardá el secret que imprime: te deja entrar a vos por /<secret> mientras dura
 
 ```
 cd $REL
-php artisan migrate --force 6. Cachés y activar
+php artisan migrate --force
+```
 
+# 6. Cachés y activar
+
+```
 php artisan storage:link
 php artisan config:cache
 php artisan route:cache
