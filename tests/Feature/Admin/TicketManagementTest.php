@@ -98,6 +98,27 @@ test('a client cannot change a ticket status', function () {
     expect($ticket->refresh()->status)->toBe('open');
 });
 
+test('a client cannot mark their own ticket as awaiting response', function () {
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->create(['status' => 'in_progress', 'user_id' => $client->id]);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.ticket-status-selector', ['ticket' => $ticket])
+        ->call('updateStatus', 'awaiting_response')
+        ->assertForbidden();
+
+    expect($ticket->refresh()->status)->toBe('in_progress');
+});
+
+test('awaiting response has its own label and color', function () {
+    $otherColors = collect(array_diff(Ticket::STATUSES, ['awaiting_response']))
+        ->map(fn (string $status): string => Ticket::colorForStatus($status));
+
+    expect(Ticket::labelForStatus('awaiting_response'))->toBe('Esperando respuesta')
+        ->and($otherColors)->not->toContain(Ticket::colorForStatus('awaiting_response'));
+});
+
 test('a guest cannot change a ticket status', function () {
     $ticket = Ticket::factory()->create(['status' => 'open']);
 

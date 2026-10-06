@@ -20,6 +20,15 @@ test('a paused ticket appears only in the "en curso" listing', function () {
     $this->actingAs($client)->get(route('ticket.finished'))->assertDontSee($ticket->title);
 });
 
+test('a ticket awaiting response appears only in the "en curso" listing', function () {
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->for($client)->awaitingResponse()->create();
+
+    $this->actingAs($client)->get(route('ticket.index'))->assertSee($ticket->title);
+    $this->actingAs($client)->get(route('ticket.finished'))->assertDontSee($ticket->title);
+    $this->actingAs($client)->get(route('ticket.drafts'))->assertDontSee($ticket->title);
+});
+
 test('a resolved ticket appears only in the "finalizados" listing', function () {
     $client = User::factory()->create();
     $ticket = Ticket::factory()->for($client)->create(['status' => 'resolved']);

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\SanitizedHtml;
+use App\Enums\Difficulty;
 use App\Enums\Level;
 use App\Enums\TicketPriority;
 use App\Enums\TriageStatus;
@@ -27,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property Level $importance
  * @property Level $urgency
  * @property Level $impact
+ * @property Difficulty|null $difficulty
  * @property TicketPriority $priority
  * @property int|null $category_id
  * @property TicketCategory|null $category
@@ -39,7 +41,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['user_id', 'area_id', 'created_by', 'title', 'description', 'importance', 'urgency', 'impact', 'category_id', 'assigned_to', 'status', 'triage_status', 'validation_status', 'resolution_rating', 'validated_at'])]
+#[Fillable(['user_id', 'area_id', 'created_by', 'title', 'description', 'importance', 'urgency', 'impact', 'difficulty', 'category_id', 'assigned_to', 'status', 'triage_status', 'validation_status', 'resolution_rating', 'validated_at'])]
 
 class Ticket extends Model
 {
@@ -49,7 +51,7 @@ class Ticket extends Model
     /**
      * @var array<int, string>
      */
-    public const STATUSES = ['draft', 'open', 'in_progress', 'paused', 'resolved', 'cancelled'];
+    public const STATUSES = ['draft', 'open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled'];
 
     /**
      * The order statuses are presented in when a listing is sorted by status.
@@ -61,7 +63,7 @@ class Ticket extends Model
      *
      * @var array<int, string>
      */
-    public const STATUS_FLOW = ['open', 'in_progress', 'paused', 'resolved', 'cancelled', 'draft'];
+    public const STATUS_FLOW = ['open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled', 'draft'];
 
     /**
      * @return array<string, string>
@@ -73,6 +75,7 @@ class Ticket extends Model
             'importance' => Level::class,
             'urgency' => Level::class,
             'impact' => Level::class,
+            'difficulty' => Difficulty::class,
             'priority' => TicketPriority::class,
             'triage_status' => TriageStatus::class,
             'validation_status' => ValidationStatus::class,
@@ -170,7 +173,7 @@ class Ticket extends Model
      */
     protected function scopeOngoing($query): void
     {
-        $query->whereIn('status', ['open', 'in_progress', 'paused']);
+        $query->whereIn('status', ['open', 'in_progress', 'paused', 'awaiting_response']);
     }
 
     protected function scopeOpen($query): void
@@ -191,6 +194,11 @@ class Ticket extends Model
     protected function scopePaused($query): void
     {
         $query->where('status', 'paused');
+    }
+
+    protected function scopeAwaitingResponse($query): void
+    {
+        $query->where('status', 'awaiting_response');
     }
 
     protected function scopeCancelled($query): void
@@ -271,6 +279,17 @@ class Ticket extends Model
             ->leftJoin('ticket_categories', 'ticket_categories.id', '=', 'tickets.category_id')
             ->orderByRaw('tickets.category_id IS NULL')
             ->orderBy('ticket_categories.name', $direction);
+    }
+
+    /**
+     * Order by difficulty, keeping unestimated tickets last in both directions.
+     *
+     * @param  Builder<Ticket>  $query
+     */
+    protected function scopeOrderByDifficulty($query, string $direction = 'asc'): void
+    {
+        $query->orderByRaw('tickets.difficulty IS NULL')
+            ->orderBy('tickets.difficulty', static::sortDirection($direction));
     }
 
     /**
@@ -375,6 +394,7 @@ class Ticket extends Model
             'open' => 'green',
             'in_progress' => 'yellow',
             'paused' => 'orange',
+            'awaiting_response' => 'purple',
             'resolved' => 'blue',
             'cancelled' => 'red',
             default => 'zinc',
@@ -393,6 +413,7 @@ class Ticket extends Model
             'open' => __('Abierto'),
             'in_progress' => __('En Progreso'),
             'paused' => __('Pausado'),
+            'awaiting_response' => __('Esperando respuesta'),
             'resolved' => __('Resuelto'),
             'cancelled' => __('Cancelado'),
             default => __('Desconocido'),
@@ -412,6 +433,14 @@ class Ticket extends Model
     public function isDraft(): bool
     {
         return $this->status === 'draft';
+    }
+
+    /**
+     * Whether the team is waiting on the ticket's author to reply before continuing.
+     */
+    public function isAwaitingResponse(): bool
+    {
+        return $this->status === 'awaiting_response';
     }
 
     /**

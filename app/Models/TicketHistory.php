@@ -26,6 +26,13 @@ class TicketHistory extends Model
      */
     public const UPDATED_AT = null;
 
+    /**
+     * Fields whose history entries only admins may see.
+     *
+     * @var array<int, string>
+     */
+    public const ADMIN_ONLY_FIELDS = ['difficulty'];
+
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);

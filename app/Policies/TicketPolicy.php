@@ -48,6 +48,16 @@ class TicketPolicy
     }
 
     /**
+     * Determine whether the user can estimate the ticket's difficulty.
+     *
+     * Not tied to triage approval: estimating effort is most useful while triaging.
+     */
+    public function estimate(User $user, Ticket $ticket): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
      * Determine whether the user can approve the ticket out of triage.
      */
     public function approve(User $user, Ticket $ticket): bool

@@ -3,6 +3,7 @@
 use App\Enums\TriageStatus;
 use App\Enums\ValidationStatus;
 use App\Models\Ticket;
+use App\Models\TicketHistory;
 use App\Models\User;
 use Livewire\Component;
 
@@ -13,7 +14,10 @@ new class extends Component
     public function with(): array
     {
         return [
-            'entries' => $this->ticket->history()->with('changedBy')->get(),
+            'entries' => $this->ticket->history()
+                ->with('changedBy')
+                ->unless(auth()->user()?->isAdmin(), fn ($query) => $query->whereNotIn('field', TicketHistory::ADMIN_ONLY_FIELDS))
+                ->get(),
         ];
     }
 
@@ -24,6 +28,7 @@ new class extends Component
             'triage_status' => __('Triage'),
             'validation_status' => __('Validación'),
             'assigned_to' => __('Asignación'),
+            'difficulty' => __('Dificultad'),
             'details' => __('Detalles editados'),
             default => $field,
         };
@@ -36,6 +41,7 @@ new class extends Component
             'triage_status' => $value !== null ? Ticket::labelForTriageStatus(TriageStatus::from($value)) : __('Sin triage'),
             'validation_status' => $value !== null ? Ticket::labelForValidationStatus(ValidationStatus::from($value)) : __('Sin validación'),
             'assigned_to' => $this->userLabel($value),
+            'difficulty' => $value ?? __('Sin estimar'),
             default => $value ?? '—',
         };
     }

@@ -39,7 +39,7 @@ new class extends Component
      *
      * @var array<int, string>
      */
-    private const SORTABLE = ['id', 'status', 'priority', 'category', 'created_at'];
+    private const SORTABLE = ['id', 'status', 'priority', 'difficulty', 'category', 'created_at'];
 
     /**
      * Filters are bound with wire:model, so they land here instead of in a
@@ -126,6 +126,7 @@ new class extends Component
         $sorted = match ($sortBy) {
             'priority' => $query->orderByPriority($sortDirection),
             'status' => $query->orderByStatusFlow($sortDirection),
+            'difficulty' => $query->orderByDifficulty($sortDirection),
             'category' => $query->orderByCategoryName($sortDirection),
             default => $query->orderBy('tickets.'.$sortBy, $sortDirection),
         };
@@ -233,6 +234,9 @@ new class extends Component
                         <flux:table.column sortable :sorted="$sortBy === 'priority'" :direction="$sortDirection" wire:click="sort('priority')">
                             {{ __('Prioridad') }}
                         </flux:table.column>
+                        <flux:table.column sortable :sorted="$sortBy === 'difficulty'" :direction="$sortDirection" wire:click="sort('difficulty')">
+                            {{ __('Dificultad') }}
+                        </flux:table.column>
                         <flux:table.column class="hidden md:table-cell" sortable :sorted="$sortBy === 'category'" :direction="$sortDirection" wire:click="sort('category')">
                             {{ __('Categoría') }}
                         </flux:table.column>
@@ -254,6 +258,13 @@ new class extends Component
                             </flux:table.cell>
                             <flux:table.cell>
                                 <x-tickets.priority-indicator :priority="$ticket->priority" variant="solid" :ticket="$ticket" />
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                @if ($ticket->difficulty !== null)
+                                    <flux:badge size="sm" color="zinc">{{ $ticket->difficulty->label() }}</flux:badge>
+                                @else
+                                    <span class="text-xs text-neutral-400">—</span>
+                                @endif
                             </flux:table.cell>
                             <flux:table.cell class="hidden md:table-cell">
                                 <x-tickets.category-badge :category="$ticket->category" />

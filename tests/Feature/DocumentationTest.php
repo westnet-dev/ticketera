@@ -20,6 +20,17 @@ test('a client sees the user guide without the admin section', function () {
         ->assertDontSee(__('Guía para administradores'));
 });
 
+test('the guide explains the awaiting response status', function () {
+    $client = User::factory()->create();
+
+    $this->actingAs($client)
+        ->get(route('documentation.index'))
+        ->assertOk()
+        ->assertSee(__('Esperando respuesta'))
+        ->assertSee(__('El equipo necesita algo de vos para seguir'), false)
+        ->assertDontSee(__('mientras se espera información'));
+});
+
 test('an admin also sees the admin section', function () {
     $admin = User::factory()->admin()->create();
 

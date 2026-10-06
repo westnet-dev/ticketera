@@ -84,8 +84,8 @@ class TicketController extends Controller
         $countFor = fn (array $statuses): int => (int) $countsByStatus->only($statuses)->sum();
 
         return [
-            'total' => $countFor(['open', 'in_progress', 'paused', 'resolved', 'cancelled']),
-            'ongoing' => $countFor(['open', 'in_progress', 'paused']),
+            'total' => $countFor(['open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled']),
+            'ongoing' => $countFor(['open', 'in_progress', 'paused', 'awaiting_response']),
             'finished' => $countFor(['resolved', 'cancelled']),
             'drafts' => $countFor(['draft']),
             'pending_validation' => $pendingValidationCount,

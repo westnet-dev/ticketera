@@ -2,6 +2,7 @@
 
 use App\Models\Ticket;
 use App\Rules\RichTextLength;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 new class extends Component
@@ -16,12 +17,29 @@ new class extends Component
             'body' => ['required', 'string', new RichTextLength(min: 1, max: 2000)],
         ]);
 
-        $this->ticket->messages()->create([
-            'user_id' => auth()->id(),
-            'body' => $this->body,
-        ]);
+        DB::transaction(function (): void {
+            $this->ticket->messages()->create([
+                'user_id' => auth()->id(),
+                'body' => $this->body,
+            ]);
+
+            if ($this->isAuthorReplyToAwaitingTicket()) {
+                $this->ticket->update(['status' => 'in_progress']);
+            }
+        });
 
         $this->reset('body');
+    }
+
+    /**
+     * The author answering a ticket that was waiting on them puts it back in
+     * the team's queue. This is a system transition rather than a manual status
+     * change, so it does not go through the `changeStatus` gate.
+     */
+    private function isAuthorReplyToAwaitingTicket(): bool
+    {
+        return $this->ticket->isAwaitingResponse()
+            && $this->ticket->user_id === auth()->id();
     }
 
     public function with(): array
@@ -37,6 +55,12 @@ new class extends Component
     <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
         <flux:heading size="sm">{{ __('Conversación') }}</flux:heading>
     </div>
+
+    @if ($ticket->isAwaitingResponse() && $ticket->user_id === auth()->id())
+        <div class="border-b border-neutral-200 p-4 dark:border-neutral-700">
+            <flux:callout icon="chat-bubble-left-ellipsis" color="purple" :heading="__('El equipo está esperando tu respuesta para continuar.')" />
+        </div>
+    @endif
 
     <div class="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-4 lg:max-h-132">
         @forelse ($messages as $message)

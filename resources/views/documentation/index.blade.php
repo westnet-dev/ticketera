@@ -22,7 +22,8 @@
         'draft' => __('Lo estás redactando. Solo vos lo ves y todavía no fue enviado.'),
         'open' => __('Fue enviado y aprobado. Está en la cola esperando que alguien lo tome.'),
         'in_progress' => __('Un integrante del equipo está trabajando en tu pedido.'),
-        'paused' => __('El trabajo se detuvo momentáneamente, por ejemplo mientras se espera información o a un tercero.'),
+        'paused' => __('El trabajo se detuvo momentáneamente por algo ajeno a vos, por ejemplo mientras se espera a un tercero o a otro equipo.'),
+        'awaiting_response' => __('El equipo necesita algo de vos para seguir (un dato, una confirmación, una captura). Respondé en el chat del ticket y vuelve a En Progreso automáticamente.'),
         'resolved' => __('El equipo considera que el pedido está resuelto y te pide que lo valides.'),
         'cancelled' => __('El pedido se cerró sin resolverse (duplicado, ya no hace falta, fuera de alcance, etc.).'),
     ];
@@ -57,7 +58,7 @@
                         @foreach ([
                             [__('Lo creás'), __('Completás el formulario. Podés guardarlo como borrador y enviarlo más tarde.')],
                             [__('Revisión inicial'), __('Un administrador revisa que el pedido esté claro y completo. Si lo aprueba, entra a la cola de trabajo; si lo rechaza, te explica el motivo en el chat para que lo corrijas.')],
-                            [__('Se asigna y se trabaja'), __('Alguien del equipo lo toma y el ticket pasa a En Progreso. Puede pausarse si hace falta esperar algo.')],
+                            [__('Se asigna y se trabaja'), __('Alguien del equipo lo toma y el ticket pasa a En Progreso. Si el equipo necesita algo de vos pasa a Esperando respuesta hasta que contestes en el chat; si se espera a un tercero, se pausa.')],
                             [__('Se marca como resuelto'), __('Cuando el equipo termina, lo marca como Resuelto y te pide que valides el resultado.')],
                             [__('Lo validás'), __('Confirmás que quedó resuelto y calificás la solución, o indicás qué faltó y el ticket vuelve a En Progreso.')],
                         ] as $index => [$title, $body])
@@ -182,7 +183,7 @@
                 {{-- Estados --}}
                 <section id="estados" class="flex scroll-mt-6 flex-col gap-3">
                     <flux:heading size="lg">{{ $sections['estados'] }}</flux:heading>
-                    <flux:text>{{ __('El estado indica en qué etapa está tu pedido. Solo el equipo puede cambiarlo.') }}</flux:text>
+                    <flux:text>{{ __('El estado indica en qué etapa está tu pedido. Solo el equipo puede cambiarlo, salvo cuando respondés a un ticket que está Esperando respuesta.') }}</flux:text>
 
                     <flux:table>
                         <flux:table.columns>
@@ -252,7 +253,7 @@
                         {{ __('Para que el equipo pueda atender todos los pedidos, hay un máximo de :max tickets sin cerrar a la vez. El límite se comparte entre todos los tickets de un mismo área. Si pertenecés a más de un área, al crear un ticket elegís para cuál es y cuenta para esa; si no tenés área asignada, se cuenta sobre tus propios tickets.', ['max' => $maxOpenTickets]) }}
                     </flux:text>
                     <flux:text>
-                        {{ __('Cuentan los tickets Abiertos, En Progreso, Pausados y los que esperan revisión inicial. Los borradores, resueltos y cancelados no cuentan.') }}
+                        {{ __('Cuentan los tickets Abiertos, En Progreso, Pausados, Esperando respuesta y los que esperan revisión inicial. Los borradores, resueltos y cancelados no cuentan.') }}
                     </flux:text>
 
                     @unless (auth()->user()->isAdmin())
@@ -284,7 +285,7 @@
                     <flux:text>{{ __('En la sección Tickets tus pedidos se organizan en pestañas:') }}</flux:text>
                     <dl class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                         @foreach ([
-                            [__('En curso'), __('Tickets Abiertos, En Progreso o Pausados.')],
+                            [__('En curso'), __('Tickets Abiertos, En Progreso, Pausados o Esperando respuesta.')],
                             [__('Por validar'), __('Tickets resueltos que esperan tu confirmación. El número entre paréntesis indica cuántos tenés pendientes.')],
                             [__('Finalizados'), __('Tickets Resueltos o Cancelados.')],
                             [__('Borradores'), __('Pedidos que guardaste sin enviar.')],

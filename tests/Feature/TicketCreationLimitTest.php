@@ -109,6 +109,23 @@ test('resolved and cancelled tickets do not count toward the limit', function ()
         ->assertHasNoErrors();
 });
 
+test('tickets awaiting response still count toward the limit', function () {
+    $client = User::factory()->create();
+    Ticket::factory()->count(5)->awaitingResponse()->create(['user_id' => $client->id]);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.create-ticket')
+        ->set('title', 'No debería poder crear otro')
+        ->set('description', 'Mis tickets esperando respuesta siguen contando para el límite.')
+        ->set('importance', Level::Medium->value)
+        ->set('urgency', Level::Medium->value)
+        ->set('impact', Level::Medium->value)
+        ->set('images', [UploadedFile::fake()->image('evidencia.jpg')])
+        ->call('save')
+        ->assertHasErrors(['title']);
+});
+
 test('paused tickets still count toward the limit', function () {
     $client = User::factory()->create();
     Ticket::factory()->count(5)->create(['user_id' => $client->id, 'status' => 'paused']);

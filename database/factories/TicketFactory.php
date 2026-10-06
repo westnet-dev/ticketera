@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Difficulty;
 use App\Enums\Level;
 use App\Enums\TriageStatus;
 use App\Enums\ValidationStatus;
@@ -28,7 +29,7 @@ class TicketFactory extends Factory
             'importance' => fake()->randomElement(Level::cases()),
             'urgency' => fake()->randomElement(Level::cases()),
             'impact' => fake()->randomElement(Level::cases()),
-            'status' => fake()->randomElement(['open', 'in_progress', 'paused', 'resolved', 'cancelled']),
+            'status' => fake()->randomElement(['open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled']),
             'triage_status' => TriageStatus::Approved,
             'validation_status' => ValidationStatus::NotRequested,
             'resolution_rating' => null,
@@ -60,6 +61,26 @@ class TicketFactory extends Factory
             'validation_status' => ValidationStatus::Confirmed,
             'resolution_rating' => fake()->numberBetween(1, 5),
             'validated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate that the team is waiting on the ticket's author to reply.
+     */
+    public function awaitingResponse(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => 'awaiting_response',
+        ]);
+    }
+
+    /**
+     * Indicate that an admin estimated the ticket's difficulty.
+     */
+    public function withDifficulty(?Difficulty $difficulty = null): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'difficulty' => $difficulty ?? fake()->randomElement(Difficulty::cases()),
         ]);
     }
 

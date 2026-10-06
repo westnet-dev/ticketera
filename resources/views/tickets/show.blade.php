@@ -119,6 +119,15 @@
                         <dd class="mt-1"><x-tickets.priority-indicator :priority="$ticket->priority" /></dd>
                     </div>
 
+                    @can('estimate', $ticket)
+                        <div>
+                            <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Dificultad') }}</dt>
+                            <dd class="mt-1 flex flex-wrap items-center gap-2">
+                                <livewire:tickets.ticket-difficulty-selector :ticket="$ticket" />
+                            </dd>
+                        </div>
+                    @endcan
+
                     <div>
                         <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Categoría') }}</dt>
                         <dd class="mt-1"><x-tickets.category-badge :category="$ticket->category" /></dd>

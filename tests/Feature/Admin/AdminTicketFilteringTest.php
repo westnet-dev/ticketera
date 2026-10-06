@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Difficulty;
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
 use App\Models\TicketCategory;
@@ -227,13 +228,26 @@ test('sorting by status follows the ticket flow, not the alphabet', function () 
     $open = Ticket::factory()->create(['status' => 'open']);
     $inProgress = Ticket::factory()->create(['status' => 'in_progress']);
     $paused = Ticket::factory()->create(['status' => 'paused']);
+    $awaitingResponse = Ticket::factory()->awaitingResponse()->create();
     $cancelled = Ticket::factory()->create(['status' => 'cancelled']);
 
     $ids = listedTicketIds(
         Livewire::test('tickets.admin-ticket-list')->call('sort', 'status')
     );
 
-    expect($ids)->toBe([$open->id, $inProgress->id, $paused->id, $cancelled->id]);
+    expect($ids)->toBe([$open->id, $inProgress->id, $paused->id, $awaitingResponse->id, $cancelled->id]);
+});
+
+test('sorting by difficulty keeps unestimated tickets last in both directions', function () {
+    $hard = Ticket::factory()->withDifficulty(Difficulty::Eight)->create(['status' => 'open']);
+    $easy = Ticket::factory()->withDifficulty(Difficulty::Two)->create(['status' => 'open']);
+    $unestimated = Ticket::factory()->create(['status' => 'open']);
+
+    $component = Livewire::test('tickets.admin-ticket-list')->call('sort', 'difficulty');
+    expect(listedTicketIds($component))->toBe([$easy->id, $hard->id, $unestimated->id]);
+
+    $component->call('sort', 'difficulty');
+    expect(listedTicketIds($component))->toBe([$hard->id, $easy->id, $unestimated->id]);
 });
 
 test('sorting by category uses the category name', function () {
