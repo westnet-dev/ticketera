@@ -81,7 +81,37 @@ test('the issue description keeps the ticket text readable as plain text', funct
     Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
 
     expect(linearRequests('CreateIssue')[0]['variables']['input']['description'])
-        ->toEndWith("---\n\nHola & chau\n- uno\n- dos\nVer la doc (https://example.com/doc)");
+        ->toEndWith("---\n\n```\nHola & chau\n- uno\n- dos\nVer la doc (https://example.com/doc)\n```");
+});
+
+test('the issue description keeps markdown from the ticket text inert inside a code block', function () {
+    fakeLinearOperations();
+    $ticket = Ticket::factory()->create([
+        'status' => 'open',
+        'description' => '<p>![x](https://tracker.example/p.png)</p><p>[click](https://phish.example)</p>',
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+
+    expect(linearRequests('CreateIssue')[0]['variables']['input']['description'])
+        ->toEndWith("---\n\n```\n![x](https://tracker.example/p.png)\n[click](https://phish.example)\n```");
+});
+
+test('the issue description fence is longer than any backtick run in the ticket text', function () {
+    fakeLinearOperations();
+    $ticket = Ticket::factory()->create([
+        'status' => 'open',
+        'description' => '<p>antes</p><p>```</p><p>![x](https://tracker.example/p.png)</p>',
+    ]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+
+    expect(linearRequests('CreateIssue')[0]['variables']['input']['description'])
+        ->toEndWith("---\n\n````\nantes\n```\n![x](https://tracker.example/p.png)\n````");
 });
 
 test('the ticket priority maps onto linear priorities', function (Level $importance, Level $urgency, int $linearPriority) {

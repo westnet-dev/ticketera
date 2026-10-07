@@ -76,8 +76,20 @@ class TicketIssueCreator
         return implode("\n\n", array_filter([
             __('Ticket: :url', ['url' => $ticket->canonicalUrl()]),
             __('Creado desde la ticketera por :name.', ['name' => $creator->name]),
-            $text !== '' ? "---\n\n{$text}" : null,
+            $text !== '' ? "---\n\n{$this->fenced($text)}" : null,
         ]));
+    }
+
+    /**
+     * Client text inside a code block, so Linear renders none of its markdown (remote images, disguised links).
+     * The fence is longer than any backtick run in the text, so the text cannot close it early.
+     */
+    private function fenced(string $text): string
+    {
+        preg_match_all('/`+/', $text, $runs);
+        $fence = str_repeat('`', max([3, ...array_map(fn (string $run): int => strlen($run) + 1, $runs[0])]));
+
+        return "{$fence}\n{$text}\n{$fence}";
     }
 
     /**
