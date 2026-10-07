@@ -24,6 +24,8 @@ final readonly class LinearIssue
     /**
      * Build an issue from a GraphQL node selected with LinearClient::ISSUE_FIELDS.
      *
+     * The URL is rendered as a link, so only Linear's own URLs are kept.
+     *
      * @param  array<array-key, mixed>  $node
      */
     public static function fromNode(array $node): self
@@ -35,7 +37,6 @@ final readonly class LinearIssue
             id: (string) data_get($node, 'id'),
             identifier: (string) data_get($node, 'identifier'),
             title: (string) data_get($node, 'title'),
-            // Rendered as a link, so only Linear's own URLs are kept.
             url: str_starts_with($url, 'https://linear.app/') ? $url : '',
             stateName: (string) data_get($node, 'state.name'),
             stateType: (string) data_get($node, 'state.type'),
@@ -63,12 +64,13 @@ final readonly class LinearIssue
 
     /**
      * The issue identifier (e.g. GES-123) in a pasted identifier or Linear issue URL.
+     *
+     * In a URL only the /issue/ segment counts: the workspace slug could look like an identifier too.
      */
     public static function identifierFrom(string $reference): ?string
     {
         $reference = trim($reference);
 
-        // In a URL only the /issue/ segment counts: the workspace slug could look like an identifier too.
         $pattern = str_contains($reference, '/')
             ? '~/issue/([a-z][a-z0-9]*-\d{1,9})(?:[/?#]|$)~i'
             : '~^([a-z][a-z0-9]*-\d{1,9})$~i';

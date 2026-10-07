@@ -55,7 +55,7 @@ class LinearClient
      */
     public function findByIds(array $ids): array
     {
-        return $ids === [] ? [] : $this->issues(['id' => ['in' => $ids]], count($ids));
+        return $ids === [] ? [] : $this->issues(['id' => ['in' => $ids]], count($ids), 'attachments { nodes { url } }');
     }
 
     /**
@@ -77,14 +77,15 @@ class LinearClient
 
     /**
      * @param  array<string, mixed>  $filter
+     * @param  string  $extraFields  Selected on top of ISSUE_FIELDS, only by the lookups that use them.
      * @return list<LinearIssue>
      *
      * @throws LinearUnavailableException
      */
-    private function issues(array $filter, int $first): array
+    private function issues(array $filter, int $first, string $extraFields = ''): array
     {
         $data = $this->query(
-            'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first, includeArchived: true) { nodes { '.self::ISSUE_FIELDS.' attachments { nodes { url } } } } }',
+            'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first, includeArchived: true) { nodes { '.self::ISSUE_FIELDS.' '.$extraFields.' } } }',
             ['filter' => $filter, 'first' => $first],
         );
 
@@ -110,6 +111,9 @@ class LinearClient
     }
 
     /**
+     * Client errors are caught and rethrown so the request, with the key in its headers, never reaches
+     * the error page. A malformed URL logs only the exception class, since its message echoes the URL.
+     *
      * @param  array<string, mixed>  $variables
      * @return array<array-key, mixed>
      *
@@ -128,10 +132,9 @@ class LinearClient
                 ->connectTimeout(3)
                 ->post($this->url, ['query' => $query, 'variables' => $variables]);
         } catch (HttpClientException|InvalidArgumentException $exception) {
-            // Caught so the request, with the key in its headers, never reaches the error page.
             Log::warning('Linear API could not be reached.', [
                 'exception' => $exception::class,
-                'message' => $exception->getMessage(),
+                ...($exception instanceof HttpClientException ? ['message' => $exception->getMessage()] : []),
             ]);
 
             throw new LinearUnavailableException('Linear could not be reached.', previous: $exception);

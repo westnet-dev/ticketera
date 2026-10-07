@@ -121,6 +121,9 @@ new class extends Component
 
     /**
      * Refresh the cached state of the existing links and pick up issues that attach this ticket's URL.
+     *
+     * When Linear fails, the next try comes after a minute instead of the full interval, without
+     * calling Linear on every view.
      */
     private function sync(LinearClient $linear): void
     {
@@ -152,7 +155,6 @@ new class extends Component
         } catch (LinearUnavailableException) {
             $this->linearUnavailable = true;
 
-            // Retry soon instead of waiting out the interval, without calling Linear on every view.
             Cache::put($this->syncCacheKey(), true, now()->addMinute());
         }
     }

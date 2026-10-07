@@ -134,6 +134,30 @@ test('a connection failure is logged without the API key', function () {
         && ! str_contains(json_encode($context), 'lin_api_test_key'));
 });
 
+test('only the lookup by ids asks linear for attachments', function () {
+    fakeLinear(issueNodes: [linearIssueNode()]);
+    $linear = app(LinearClient::class);
+
+    $linear->findByIdentifier('GES-911');
+    $linear->findByIds(['uuid-ges-911']);
+
+    $queries = Http::recorded()->map(fn (array $pair) => $pair[0]['query'])->all();
+
+    expect($queries[0])->not->toContain('attachments')
+        ->and($queries[1])->toContain('attachments { nodes { url } }');
+});
+
+test('a malformed API url is logged without its message, which echoes the url', function () {
+    Log::spy();
+    config(['services.linear.url' => 'https://api.linear app/graphql']);
+
+    expect(fn () => app(LinearClient::class)->findByIdentifier('GES-911'))->toThrow(LinearUnavailableException::class);
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context) => $message === 'Linear API could not be reached.'
+        && ! array_key_exists('message', $context)
+        && ! str_contains(json_encode($context), 'api.linear app'));
+});
+
 test('a malformed API url is reported as Linear being unavailable', function () {
     config(['services.linear.url' => 'https://api.linear app/graphql']);
 
