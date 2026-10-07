@@ -333,7 +333,7 @@ test('a ticket awaiting validation shows up among the client\'s finished tickets
 
     $this->actingAs($owner);
 
-    Livewire::withQueryParams(['status' => 'finished'])->test('tickets.ticket-list')
+    Livewire::withQueryParams(['statuses' => Ticket::FINISHED_STATUSES])->test('tickets.ticket-list')
         ->assertViewHas('tickets', fn ($tickets) => in_array($ticket->id, $tickets->pluck('id')->all(), true))
         ->assertSee(__('Pendiente de validación'));
 });
@@ -349,7 +349,7 @@ test('the pending validation tab lists only the tickets awaiting the author\'s a
 
     $this->actingAs($owner);
 
-    Livewire::withQueryParams(['status' => 'pending_validation'])->test('tickets.ticket-list')
+    Livewire::withQueryParams(['statuses' => ['pending_validation']])->test('tickets.ticket-list')
         ->assertViewHas('tickets', function ($tickets) use ($awaiting, $alreadyValidated, $stillOpen, $someoneElses) {
             $ids = $tickets->pluck('id')->all();
 
@@ -366,7 +366,7 @@ test('the pending validation tab leaves out tickets merely assigned to an admin'
 
     $this->actingAs($admin);
 
-    Livewire::withQueryParams(['status' => 'pending_validation'])->test('tickets.ticket-list')
+    Livewire::withQueryParams(['statuses' => ['pending_validation']])->test('tickets.ticket-list')
         ->assertViewHas('tickets', fn ($tickets) => ! in_array($assigned->id, $tickets->pluck('id')->all(), true));
 });
 
@@ -375,7 +375,7 @@ test('the pending validation filter shows the tickets awaiting the author\'s ans
     $awaiting = Ticket::factory()->awaitingValidation()->create(['user_id' => $owner->id]);
 
     $this->actingAs($owner)
-        ->get(route('ticket.index', ['status' => 'pending_validation']))
+        ->get(route('ticket.index', ['statuses' => ['pending_validation']]))
         ->assertOk()
         ->assertSee($awaiting->title)
         ->assertSee(__('Estos tickets esperan tu confirmación'));
@@ -384,7 +384,7 @@ test('the pending validation filter shows the tickets awaiting the author\'s ans
 test('the old pending validation page redirects to the filtered listing', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('ticket.pending-validation'))
-        ->assertRedirect(route('ticket.index', ['status' => 'pending_validation']));
+        ->assertRedirect(route('ticket.index', ['statuses' => ['pending_validation']]));
 });
 
 test('the listing offers a pending validation filter', function () {
@@ -392,7 +392,7 @@ test('the listing offers a pending validation filter', function () {
         ->get(route('ticket.index'))
         ->assertOk()
         ->assertSee(__('Por validar'))
-        ->assertSeeHtml('value="pending_validation"');
+        ->assertSeeHtml("toggleStatus('pending_validation')");
 });
 
 test('the client dashboard links to the pending validation tab', function () {
@@ -403,7 +403,7 @@ test('the client dashboard links to the pending validation tab', function () {
     $this->actingAs($owner);
 
     Livewire::test('dashboard')
-        ->assertSee(route('ticket.index', ['status' => 'pending_validation']))
+        ->assertSee(route('ticket.index', ['statuses' => ['pending_validation']]))
         ->assertSee(__('Ver pendientes'));
 });
 

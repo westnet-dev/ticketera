@@ -346,7 +346,7 @@ new class extends Component
 
         $this->draft->delete();
 
-        return redirect()->route('ticket.index', ['status' => 'draft']);
+        return redirect()->route('ticket.index', ['statuses' => ['draft']]);
     }
 
     /**

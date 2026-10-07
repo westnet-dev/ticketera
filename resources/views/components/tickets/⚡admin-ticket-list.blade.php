@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\FiltersByTicketStatus;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -10,6 +11,7 @@ use Livewire\WithPagination;
 
 new class extends Component
 {
+    use FiltersByTicketStatus;
     use WithPagination;
 
     #[Url]
@@ -17,12 +19,6 @@ new class extends Component
 
     #[Url]
     public string $sortDirection = 'desc';
-
-    #[Url]
-    public ?string $statusFilter = null;
-
-    #[Url]
-    public ?string $assignedFilter = null;
 
     #[Url(except: '')]
     public string $search = '';
@@ -51,24 +47,14 @@ new class extends Component
         }
     }
 
-    public function filterByAssigned(?string $value): void
+    /**
+     * The admin listing never shows drafts, so it offers nothing beyond the status groups.
+     *
+     * @return array<string, string>
+     */
+    protected function statusFilterExtras(): array
     {
-        if ($value !== null && $value !== 'unassigned') {
-            return;
-        }
-
-        $this->assignedFilter = $value;
-        $this->resetPage();
-    }
-
-    public function filterByStatus(?string $status): void
-    {
-        if ($status !== null && ! in_array($status, Ticket::STATUSES, true)) {
-            return;
-        }
-
-        $this->statusFilter = $status;
-        $this->resetPage();
+        return [];
     }
 
     public function assign(int $ticketId, ?string $userId): void
@@ -109,22 +95,14 @@ new class extends Component
         $sortBy = in_array($this->sortBy, self::SORTABLE, true) ? $this->sortBy : 'created_at';
         $sortDirection = $this->sortDirection === 'asc' ? 'asc' : 'desc';
 
+        $selectedStatuses = $this->selectedStatuses();
+
         $query = Ticket::query()
             ->approved()
-            ->where('status', '!=', 'draft')
+            ->where('tickets.status', '!=', 'draft')
             ->with(['user', 'assignedTo', 'category']);
 
-        if ($this->statusFilter !== null) {
-            $query->where('status', $this->statusFilter);
-        }
-
-        if ($this->statusFilter === null) {
-            $query->whereNotIn('status', ['resolved']);
-        }
-
-        if ($this->assignedFilter === 'unassigned') {
-            $query->unassigned();
-        }
+        $this->applyStatusFilter($query, auth()->user(), $selectedStatuses);
 
         $query->search($this->search)
             ->forClient($this->clientFilter)
@@ -138,29 +116,11 @@ new class extends Component
             default => $query->orderBy('tickets.'.$sortBy, $sortDirection),
         };
 
-        $tickets = $sorted->paginate(10);
-
-        $baseQuery = Ticket::query()->approved()->where('status', '!=', 'draft');
-
-        $countsByStatus = (clone $baseQuery)
-            ->toBase()
-            ->select('status')
-            ->selectRaw('count(*) as aggregate')
-            ->groupBy('status')
-            ->pluck('aggregate', 'status');
-
         return [
-            'tickets' => $tickets,
-            'tabCounts' => [
-                'all' => (int) $countsByStatus->except(['resolved'])->sum(),
-                'unassigned' => (clone $baseQuery)->whereNotIn('status', ['resolved'])->unassigned()->count(),
-                'resolved' => (int) ($countsByStatus['resolved'] ?? 0),
-                'cancelled' => (int) ($countsByStatus['cancelled'] ?? 0),
-            ],
+            'tickets' => $sorted->paginate(10),
+            'selectedStatuses' => $selectedStatuses,
             'sortBy' => $sortBy,
             'sortDirection' => $sortDirection,
-            'statusFilter' => $this->statusFilter,
-            'assignedFilter' => $this->assignedFilter,
             'assignableUsers' => User::assignable()
                 ->orderBy('name')
                 ->get(),
@@ -176,21 +136,6 @@ new class extends Component
 ?>
 
 <div class="flex flex-col gap-4">
-    <x-tabs aria-label="{{ __('Filtrar tickets') }}">
-        <x-tab wire:click="filterByStatus(null); filterByAssigned(null)" :active="$statusFilter === null && $assignedFilter === null" :count="$tabCounts['all']">
-            {{ __('Todos') }}
-        </x-tab>
-        <x-tab wire:click="filterByAssigned('unassigned'); filterByStatus(null)" :active="$assignedFilter === 'unassigned'" :count="$tabCounts['unassigned']">
-            {{ __('Sin Asignar') }}
-        </x-tab>
-        <x-tab wire:click="filterByStatus('resolved'); filterByAssigned(null)" :active="$statusFilter === 'resolved'" :count="$tabCounts['resolved']">
-            {{ __('Resueltos') }}
-        </x-tab>
-        <x-tab wire:click="filterByStatus('cancelled'); filterByAssigned(null)" :active="$statusFilter === 'cancelled'" :count="$tabCounts['cancelled']">
-            {{ __('Cancelados') }}
-        </x-tab>
-    </x-tabs>
-
     <x-panel>
         <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
             <flux:input
@@ -201,6 +146,8 @@ new class extends Component
                 :label="__('Buscar')"
                 :placeholder="__('Título o número de ticket')"
             />
+
+            <x-tickets.status-filter class="sm:w-56" :groups="$this->statusGroups()" :selected="$selectedStatuses" />
 
             <flux:select class="sm:w-56" wire:model.live="clientFilter" :label="__('Cliente')">
                 <flux:select.option value="">{{ __('Todos los clientes') }}</flux:select.option>
@@ -221,7 +168,7 @@ new class extends Component
 
     @if ($tickets->isEmpty())
         @php
-            $hasFilters = $search !== '' || $clientFilter !== '' || $assignedToFilter !== '';
+            $hasFilters = $search !== '' || $selectedStatuses !== [] || $clientFilter !== '' || $assignedToFilter !== '';
         @endphp
 
         <x-empty-state :message="$hasFilters ? __('Ningún ticket coincide con los filtros aplicados.') : __('No hay tickets.')" />

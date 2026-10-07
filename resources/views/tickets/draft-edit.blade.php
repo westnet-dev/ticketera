@@ -3,7 +3,7 @@
         <x-page-header :title="__('Borrador')" :subtitle="__('Completá el ticket y envialo cuando esté listo.')">
             <x-slot:actions>
                 <flux:button
-                    href="{{ route('ticket.index', ['status' => 'draft']) }}"
+                    href="{{ route('ticket.index', ['statuses' => ['draft']]) }}"
                     wire:navigate
                     variant="outline"
                     size="sm"

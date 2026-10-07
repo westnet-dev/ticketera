@@ -122,7 +122,7 @@ test('a client with areas and nothing outside them gets no "Sin área" tab', fun
         ->assertViewHas('tabs', fn ($tabs) => ! $tabs->has('none'));
 });
 
-test('the status filter narrows the active tab', function (string $status, array $expectedStatuses) {
+test('the status filter narrows the active tab', function (array $statuses, array $expectedStatuses) {
     $area = Area::factory()->create();
     $client = User::factory()->withAreas($area)->create();
 
@@ -133,13 +133,14 @@ test('the status filter narrows the active tab', function (string $status, array
     $this->actingAs($client);
 
     Livewire::test('tickets.ticket-list')
-        ->set('status', $status)
+        ->set('statuses', $statuses)
         ->assertViewHas('tickets', fn ($tickets) => $tickets->pluck('status')->sort()->values()->all() === collect($expectedStatuses)->sort()->values()->all());
 })->with([
-    'en curso' => ['ongoing', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']],
-    'finalizados' => ['finished', ['resolved', 'cancelled']],
-    'todos' => ['all', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled']],
-    'valor inválido' => ['bogus', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']],
+    'en curso' => [Ticket::ONGOING_STATUSES, ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']],
+    'finalizados' => [Ticket::FINISHED_STATUSES, ['resolved', 'cancelled']],
+    'varios estados sueltos' => [['paused', 'resolved'], ['paused', 'resolved']],
+    'todos' => [[], ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled']],
+    'valor inválido' => [['bogus'], ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']],
 ]);
 
 test('"Por validar" lists the area\'s tickets awaiting validation from any author', function () {
@@ -152,7 +153,7 @@ test('"Por validar" lists the area\'s tickets awaiting validation from any autho
     $this->actingAs($client);
 
     Livewire::test('tickets.ticket-list')
-        ->set('status', 'pending_validation')
+        ->set('statuses', ['pending_validation'])
         ->assertViewHas('tickets', fn ($tickets) => collect(listingIds($tickets))->sort()->values()->all() === collect([$own->id, $teammates->id])->sort()->values()->all())
         ->assertSee(__('Estos tickets esperan tu confirmación'));
 });
@@ -166,11 +167,11 @@ test('"Borradores" only lists the user\'s own drafts', function () {
     $this->actingAs($client);
 
     Livewire::test('tickets.ticket-list')
-        ->set('status', 'draft')
+        ->set('statuses', ['draft'])
         ->assertViewHas('tickets', fn ($tickets) => listingIds($tickets) === [$own->id]);
 
     Livewire::test('tickets.ticket-list')
-        ->set('status', 'all')
+        ->set('statuses', [])
         ->assertViewHas('tickets', fn ($tickets) => ! in_array($teammates->id, listingIds($tickets), true));
 });
 
@@ -188,7 +189,7 @@ test('the search matches titles and ticket numbers within the active tab and sta
         ->assertViewHas('tickets', fn ($tickets) => listingIds($tickets) === [$printer->id])
         ->set('search', "#TK-{$other->id}")
         ->assertViewHas('tickets', fn ($tickets) => listingIds($tickets) === [$other->id])
-        ->set('status', 'all')
+        ->set('statuses', [])
         ->set('search', 'impresora')
         ->assertViewHas('tickets', fn ($tickets) => count(listingIds($tickets)) === 2 && in_array($resolvedPrinter->id, listingIds($tickets), true));
 });
@@ -295,15 +296,45 @@ test('clients get no assigned tab', function () {
         ->assertViewHas('tabs', fn ($tabs) => ! $tabs->has('assigned'));
 });
 
-test('the old status pages redirect to the listing with the matching filter', function (string $route, string $status) {
+test('the old status pages redirect to the listing with the matching filter', function (string $route, array $statuses) {
     $this->actingAs(User::factory()->create())
         ->get(route($route))
-        ->assertRedirect(route('ticket.index', ['status' => $status]));
+        ->assertRedirect(route('ticket.index', ['statuses' => $statuses]));
 })->with([
-    ['ticket.finished', 'finished'],
-    ['ticket.drafts', 'draft'],
-    ['ticket.pending-validation', 'pending_validation'],
+    ['ticket.finished', ['resolved', 'cancelled']],
+    ['ticket.drafts', ['draft']],
+    ['ticket.pending-validation', ['pending_validation']],
 ]);
+
+test('the old finished page lands on the listing with both finished statuses ticked', function () {
+    $client = User::factory()->create();
+    $resolved = Ticket::factory()->for($client)->create(['status' => 'resolved']);
+    $cancelled = Ticket::factory()->for($client)->create(['status' => 'cancelled']);
+    $open = Ticket::factory()->for($client)->create(['status' => 'open']);
+
+    $this->actingAs($client)
+        ->followingRedirects()
+        ->get(route('ticket.finished'))
+        ->assertOk()
+        ->assertSee($resolved->title)
+        ->assertSee($cancelled->title)
+        ->assertDontSee($open->title);
+});
+
+test('every status option ticked never reaches another area', function () {
+    $area = Area::factory()->create();
+    $client = User::factory()->withAreas($area)->create();
+    $foreign = Ticket::factory()->create(['area_id' => Area::factory()->create()->id, 'status' => 'open']);
+    $foreignPendingValidation = Ticket::factory()->awaitingValidation()->create(['area_id' => Area::factory()->create()->id]);
+    $foreignDraft = Ticket::factory()->draft()->create(['area_id' => Area::factory()->create()->id]);
+    $mine = Ticket::factory()->create(['area_id' => $area->id, 'status' => 'open']);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.ticket-list')
+        ->set('statuses', [...Ticket::ONGOING_STATUSES, ...Ticket::FINISHED_STATUSES, 'draft', 'pending_validation'])
+        ->assertViewHas('tickets', fn ($tickets) => listingIds($tickets) === [$mine->id]);
+});
 
 test('the status in the URL preselects the filter', function () {
     $client = User::factory()->create();
@@ -311,7 +342,7 @@ test('the status in the URL preselects the filter', function () {
     $open = Ticket::factory()->for($client)->create(['status' => 'open']);
 
     $this->actingAs($client)
-        ->get(route('ticket.index', ['status' => 'finished']))
+        ->get(route('ticket.index', ['statuses' => ['resolved', 'cancelled']]))
         ->assertOk()
         ->assertSee($resolved->title)
         ->assertDontSee($open->title);

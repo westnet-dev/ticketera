@@ -63,7 +63,7 @@ test('the owning client can delete their own draft', function () {
 
     Livewire::test('tickets.create-ticket', ['draft' => $draft])
         ->call('deleteDraft')
-        ->assertRedirect(route('ticket.index', ['status' => 'draft']));
+        ->assertRedirect(route('ticket.index', ['statuses' => ['draft']]));
 
     expect(Ticket::find($draft->id))->toBeNull();
 });

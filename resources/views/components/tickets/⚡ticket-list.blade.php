@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\FiltersByTicketStatus;
 use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
@@ -12,6 +13,7 @@ use Livewire\WithPagination;
 
 new class extends Component
 {
+    use FiltersByTicketStatus;
     use WithPagination;
 
     /**
@@ -25,22 +27,12 @@ new class extends Component
     private const TAB_ASSIGNED = 'assigned';
 
     /**
-     * The status filter options, which is also the whitelist for the query string.
-     *
-     * @var array<int, string>
-     */
-    private const STATUSES = ['ongoing', 'pending_validation', 'finished', 'draft', 'all'];
-
-    /**
      * @var array<int, string>
      */
     private const SORTABLE = ['priority', 'urgency', 'impact', 'created_at', 'updated_at'];
 
     #[Url(except: '')]
     public string $area = '';
-
-    #[Url(except: 'ongoing')]
-    public string $status = 'ongoing';
 
     #[Url(except: '')]
     public string $search = '';
@@ -57,7 +49,7 @@ new class extends Component
      */
     public function updated(string $property): void
     {
-        if (in_array($property, ['search', 'status'], true)) {
+        if ($property === 'search') {
             $this->resetPage();
         }
     }
@@ -96,7 +88,7 @@ new class extends Component
             $this->area = (string) $tabs->keys()->first();
         }
 
-        $status = in_array($this->status, self::STATUSES, true) ? $this->status : 'ongoing';
+        $selectedStatuses = $this->selectedStatuses();
         $sortBy = in_array($this->sortBy, self::SORTABLE, true) ? $this->sortBy : 'created_at';
         $sortDirection = Ticket::sortDirection($this->sortDirection);
 
@@ -109,11 +101,12 @@ new class extends Component
             ]))
             ->search($this->search);
 
-        $this->applyStatus($query, $user, $status);
+        $this->applyStatusFilter($query, $user, $selectedStatuses);
 
         return [
             'tabs' => $tabs,
-            'status' => $status,
+            'selectedStatuses' => $selectedStatuses,
+            'statusExtras' => $this->statusFilterExtras(),
             'tickets' => $query
                 ->when(
                     $sortBy === 'priority',
@@ -125,7 +118,7 @@ new class extends Component
             'sortDirection' => $sortDirection,
             'quota' => $this->quota($user, $areas, $activeArea),
             // Admins never validate, so the prompt is only for the requesting side.
-            'canValidateListed' => $status === 'pending_validation' && ! $user->isAdmin(),
+            'canValidateListed' => $selectedStatuses === ['pending_validation'] && ! $user->isAdmin(),
         ];
     }
 
@@ -201,18 +194,16 @@ new class extends Component
     }
 
     /**
-     * @param  Builder<Ticket>  $query
+     * Own drafts and tickets awaiting the requester's validation, on top of the status groups.
+     *
+     * @return array<string, string>
      */
-    private function applyStatus(Builder $query, User $user, string $status): void
+    protected function statusFilterExtras(): array
     {
-        match ($status) {
-            'pending_validation' => $query->pendingValidation(),
-            'finished' => $query->finished(),
-            // Drafts are private: never someone else's, whatever the tab.
-            'draft' => $query->draft()->where('tickets.user_id', $user->id),
-            'all' => null,
-            default => $query->ongoing(),
-        };
+        return [
+            'pending_validation' => __('Por validar'),
+            'draft' => __('Borradores'),
+        ];
     }
 
     /**
@@ -280,13 +271,7 @@ new class extends Component
                 :placeholder="__('Título o número de ticket')"
             />
 
-            <flux:select class="sm:w-56" wire:model.live="status" :label="__('Estado')">
-                <flux:select.option value="ongoing">{{ __('En curso') }}</flux:select.option>
-                <flux:select.option value="pending_validation">{{ __('Por validar') }}</flux:select.option>
-                <flux:select.option value="finished">{{ __('Finalizados') }}</flux:select.option>
-                <flux:select.option value="draft">{{ __('Borradores') }}</flux:select.option>
-                <flux:select.option value="all">{{ __('Todos') }}</flux:select.option>
-            </flux:select>
+            <x-tickets.status-filter class="sm:w-56" :groups="$this->statusGroups()" :extras="$statusExtras" :selected="$selectedStatuses" />
         </div>
     </x-panel>
 
@@ -302,15 +287,17 @@ new class extends Component
     @if ($tickets->isEmpty())
         @if (trim($search) !== '')
             <x-empty-state :message="__('Ningún ticket coincide con los filtros aplicados.')" />
-        @elseif ($status === 'finished')
-            <x-empty-state :message="__('No hay tickets finalizados.')" />
-        @elseif ($status === 'draft')
-            <x-empty-state icon="pencil-square" :message="__('No tienes borradores.')" />
-        @elseif ($status === 'pending_validation')
-            <x-empty-state icon="check-badge" :message="__('No hay tickets esperando validación.')" />
-        @else
+        @elseif ($selectedStatuses === \App\Models\Ticket::ONGOING_STATUSES)
             @php($createHint = __('Haz clic en "Nuevo ticket" para crear uno.'))
             <x-empty-state :message="__('No hay tickets en curso.')" :hint="$createHint" />
+        @elseif ($selectedStatuses === \App\Models\Ticket::FINISHED_STATUSES)
+            <x-empty-state :message="__('No hay tickets finalizados.')" />
+        @elseif ($selectedStatuses === ['draft'])
+            <x-empty-state icon="pencil-square" :message="__('No tienes borradores.')" />
+        @elseif ($selectedStatuses === ['pending_validation'])
+            <x-empty-state icon="check-badge" :message="__('No hay tickets esperando validación.')" />
+        @else
+            <x-empty-state :message="__('Ningún ticket coincide con los filtros aplicados.')" />
         @endif
     @else
         <x-table-panel>

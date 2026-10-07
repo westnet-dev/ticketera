@@ -67,6 +67,20 @@ class Ticket extends Model
     public const STATUS_FLOW = ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled', 'draft'];
 
     /**
+     * Statuses of tickets still being worked on, grouped as "En curso" in the listings.
+     *
+     * @var array<int, string>
+     */
+    public const ONGOING_STATUSES = ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy'];
+
+    /**
+     * Statuses of tickets whose work is over, grouped as "Finalizados" in the listings.
+     *
+     * @var array<int, string>
+     */
+    public const FINISHED_STATUSES = ['resolved', 'cancelled'];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -253,7 +267,7 @@ class Ticket extends Model
      */
     protected function scopeOngoing($query): void
     {
-        $query->whereIn('status', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']);
+        $query->whereIn('status', self::ONGOING_STATUSES);
     }
 
     protected function scopeOpen($query): void
@@ -296,7 +310,7 @@ class Ticket extends Model
 
     protected function scopeFinished($query): void
     {
-        $query->whereIn('status', ['resolved', 'cancelled']);
+        $query->whereIn('status', self::FINISHED_STATUSES);
     }
 
     /**

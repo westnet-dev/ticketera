@@ -29,17 +29,17 @@ class TicketController extends Controller
      */
     public function finished(): RedirectResponse
     {
-        return redirect()->route('ticket.index', ['status' => 'finished']);
+        return redirect()->route('ticket.index', ['statuses' => Ticket::FINISHED_STATUSES]);
     }
 
     public function drafts(): RedirectResponse
     {
-        return redirect()->route('ticket.index', ['status' => 'draft']);
+        return redirect()->route('ticket.index', ['statuses' => ['draft']]);
     }
 
     public function pendingValidation(): RedirectResponse
     {
-        return redirect()->route('ticket.index', ['status' => 'pending_validation']);
+        return redirect()->route('ticket.index', ['statuses' => ['pending_validation']]);
     }
 
     public function show(Ticket $ticket): View

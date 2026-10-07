@@ -47,7 +47,7 @@ test('a resolved ticket assigned to an admin appears only under the finished fil
     $this->actingAs($admin);
 
     $this->get(route('ticket.index', ['area' => 'assigned']))->assertOk()->assertDontSee('Pedido resuelto asignado');
-    $this->get(route('ticket.index', ['area' => 'assigned', 'status' => 'finished']))->assertOk()->assertSee('Pedido resuelto asignado');
+    $this->get(route('ticket.index', ['area' => 'assigned', 'statuses' => ['resolved', 'cancelled']]))->assertOk()->assertSee('Pedido resuelto asignado');
 });
 
 test('a client does not see tickets assigned to them, only tickets they created', function () {

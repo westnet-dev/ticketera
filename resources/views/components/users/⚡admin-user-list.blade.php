@@ -1,5 +1,6 @@
 <?php
 
+use App\Concerns\ProfileValidationRules;
 use App\Enums\Role;
 use App\Models\Area;
 use App\Models\User;
@@ -13,6 +14,7 @@ use Livewire\WithPagination;
 
 new class extends Component
 {
+    use ProfileValidationRules;
     use WithPagination;
 
     public string $name = '';
@@ -25,6 +27,12 @@ new class extends Component
      * @var array<int, string>
      */
     public array $area_ids = [];
+
+    public ?int $editingUserId = null;
+
+    public string $editingName = '';
+
+    public string $editingEmail = '';
 
     public ?int $editingAreasUserId = null;
 
@@ -88,6 +96,51 @@ new class extends Component
         Gate::authorize('updateRole', [$target, $newRole]);
 
         $target->update(['role' => $newRole]);
+    }
+
+    public function startEditingUser(int $userId): void
+    {
+        $target = User::findOrFail($userId);
+
+        Gate::authorize('update', $target);
+
+        $this->resetValidation(['editingName', 'editingEmail']);
+        $this->editingUserId = $target->id;
+        $this->editingName = $target->name;
+        $this->editingEmail = $target->email;
+
+        $this->modal('edit-user')->show();
+    }
+
+    /**
+     * Save the user's name and email with the same rules as the profile form,
+     * including dropping the verification when the email changes.
+     */
+    public function updateUser(): void
+    {
+        $target = User::findOrFail($this->editingUserId);
+
+        Gate::authorize('update', $target);
+
+        $validated = $this->validate([
+            'editingName' => $this->nameRules(),
+            'editingEmail' => $this->emailRules($target->id),
+        ]);
+
+        $target->fill([
+            'name' => $validated['editingName'],
+            'email' => $validated['editingEmail'],
+        ]);
+
+        if ($target->isDirty('email')) {
+            $target->email_verified_at = null;
+        }
+
+        $target->save();
+
+        $this->reset(['editingUserId', 'editingName', 'editingEmail']);
+
+        $this->modal('edit-user')->close();
     }
 
     public function startEditingAreas(int $userId): void
@@ -186,7 +239,9 @@ new class extends Component
                     @endphp
                     <flux:table.row :key="$user->id">
                         <flux:table.cell>
-                            <x-user-cell :user="$user" show-email />
+                            <div class="flex items-center gap-2">
+                                <x-user-cell :user="$user" show-email />
+                            </div>
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:select size="sm" :disabled="$isProtected" wire:change="updateRole({{ $user->id }}, $event.target.value)">
@@ -208,6 +263,15 @@ new class extends Component
                             </div>
                         </flux:table.cell>
                         <flux:table.cell class="flex flex-wrap items-center gap-2">
+                            <flux:button
+                                size="sm"
+                                variant="outline"
+                                wire:click="startEditingUser({{ $user->id }})"
+                                :aria-label="__('Editar :name', ['name' => $user->name])"
+                            >
+                                {{ __('Editar') }}
+                            </flux:button>
+
                             <flux:button
                                 size="sm"
                                 variant="outline"
@@ -268,6 +332,31 @@ new class extends Component
 
                 <flux:button variant="primary" type="submit">
                     {{ __('Crear usuario') }}
+                </flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    <flux:modal name="edit-user" class="max-w-lg">
+        <form wire:submit="updateUser" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Editar usuario') }}</flux:heading>
+                <flux:subheading>
+                    {{ __('Si cambiás el email, el usuario deberá usar el nuevo para ingresar.') }}
+                </flux:subheading>
+            </div>
+
+            <flux:input wire:model="editingName" :label="__('Nombre')" />
+
+            <flux:input wire:model="editingEmail" type="email" :label="__('Email')" />
+
+            <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+                <flux:modal.close>
+                    <flux:button variant="filled">{{ __('Cancelar') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button variant="primary" type="submit">
+                    {{ __('Guardar') }}
                 </flux:button>
             </div>
         </form>

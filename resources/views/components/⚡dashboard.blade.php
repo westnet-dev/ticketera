@@ -126,7 +126,7 @@ new class extends Component
                     {{ __('Entrá a cada ticket para confirmar si el pedido quedó resuelto y calificar la solución.') }}
                 </flux:callout.text>
                 <x-slot name="actions">
-                    <flux:button size="sm" href="{{ route('ticket.index', ['status' => 'pending_validation']) }}" wire:navigate>
+                    <flux:button size="sm" href="{{ route('ticket.index', ['statuses' => ['pending_validation']]) }}" wire:navigate>
                         {{ __('Ver pendientes') }}
                     </flux:button>
                 </x-slot>

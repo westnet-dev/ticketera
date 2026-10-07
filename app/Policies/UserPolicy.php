@@ -32,11 +32,14 @@ class UserPolicy
     }
 
     /**
-     * Determine whether the user can update the model.
+     * Determine whether the user can edit the target user's name and email.
+     *
+     * Unlike role changes or deletion, this cannot lock anyone out, so admins
+     * may edit any user, themselves and the last admin included.
      */
     public function update(User $user, User $model): bool
     {
-        return false;
+        return $user->isAdmin();
     }
 
     /**

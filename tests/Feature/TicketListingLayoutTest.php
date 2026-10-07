@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\Level;
-use App\Enums\TriageStatus;
 use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\User;
@@ -54,23 +53,15 @@ test('the priority label follows the importance and urgency matrix', function (L
     [Level::Low, Level::Medium, 'Baja'],
 ]);
 
-test('the admin ticket list tabs carry a count for each filter', function () {
+test('the admin ticket list shows the status filter instead of status tabs', function () {
     $admin = User::factory()->admin()->create();
-    Ticket::factory()->count(2)->create(['status' => 'open', 'assigned_to' => null]);
-    Ticket::factory()->create(['status' => 'in_progress', 'assigned_to' => $admin->id]);
-    Ticket::factory()->create(['status' => 'resolved']);
-    Ticket::factory()->create(['status' => 'cancelled', 'assigned_to' => $admin->id]);
-    Ticket::factory()->create(['status' => 'open', 'triage_status' => TriageStatus::Pending]);
 
     $this->actingAs($admin);
 
     Livewire::test('tickets.admin-ticket-list')
-        ->assertViewHas('tabCounts', [
-            'all' => 4,
-            'unassigned' => 2,
-            'resolved' => 1,
-            'cancelled' => 1,
-        ]);
+        ->assertSeeHtml('data-test="status-filter-trigger"')
+        ->assertSee('En curso')
+        ->assertDontSee('Resueltos');
 });
 
 test('the ticket detail header shows the ticket id, status and priority level', function () {

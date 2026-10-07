@@ -161,32 +161,19 @@ test('two filters at once return the intersection, not the union', function () {
         ->and($ids)->not->toContain($onlyAssignee->id);
 });
 
-test('a filter applies inside the active status tab', function () {
+test('a filter applies inside the selected statuses', function () {
     $client = User::factory()->create();
     $resolved = Ticket::factory()->create(['user_id' => $client->id, 'status' => 'resolved']);
     $open = Ticket::factory()->create(['user_id' => $client->id, 'status' => 'open']);
 
     $ids = listedTicketIds(
         Livewire::test('tickets.admin-ticket-list')
-            ->call('filterByStatus', 'resolved')
+            ->set('statuses', ['resolved'])
             ->set('clientFilter', (string) $client->id)
     );
 
     expect($ids)->toBe([$resolved->id])
         ->and($ids)->not->toContain($open->id);
-});
-
-test('the tab counts ignore the filters', function () {
-    Ticket::factory()->count(3)->create(['status' => 'open']);
-    $client = User::factory()->create();
-    Ticket::factory()->create(['user_id' => $client->id, 'status' => 'open']);
-
-    $component = Livewire::test('tickets.admin-ticket-list');
-    $before = $component->viewData('tabCounts')['all'];
-
-    $after = $component->set('clientFilter', (string) $client->id)->viewData('tabCounts')['all'];
-
-    expect($after)->toBe($before);
 });
 
 test('sorting by id orders the listing numerically', function () {
@@ -233,7 +220,9 @@ test('sorting by status follows the ticket flow, not the alphabet', function () 
     $cancelled = Ticket::factory()->create(['status' => 'cancelled']);
 
     $ids = listedTicketIds(
-        Livewire::test('tickets.admin-ticket-list')->call('sort', 'status')
+        Livewire::test('tickets.admin-ticket-list')
+            ->set('statuses', [])
+            ->call('sort', 'status')
     );
 
     expect($ids)->toBe([$open->id, $inProgress->id, $paused->id, $awaitingResponse->id, $pendingDeploy->id, $cancelled->id]);
@@ -332,6 +321,17 @@ test('changing the sort column returns to the first page', function () {
     expect($component->viewData('tickets')->currentPage())->toBe(2);
 
     $component->call('sort', 'id');
+
+    expect($component->viewData('tickets')->currentPage())->toBe(1);
+});
+
+test('toggling a status returns to the first page', function () {
+    Ticket::factory()->count(25)->create(['status' => 'open']);
+
+    $component = Livewire::test('tickets.admin-ticket-list')->call('gotoPage', 2);
+    expect($component->viewData('tickets')->currentPage())->toBe(2);
+
+    $component->call('toggleStatus', 'resolved');
 
     expect($component->viewData('tickets')->currentPage())->toBe(1);
 });

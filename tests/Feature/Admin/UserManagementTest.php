@@ -39,6 +39,19 @@ test('a client cannot perform any user management action', function () {
     Livewire::test('users.admin-user-list')
         ->call('deleteUser', $other->id)
         ->assertForbidden();
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $other->id)
+        ->assertForbidden();
+
+    Livewire::test('users.admin-user-list')
+        ->set('editingUserId', $other->id)
+        ->set('editingName', 'Nombre Cambiado')
+        ->set('editingEmail', 'cambiado@example.com')
+        ->call('updateUser')
+        ->assertForbidden();
+
+    expect($other->fresh()->only(['name', 'email']))->toBe($other->only(['name', 'email']));
 });
 
 test('an admin can create a user and a reset-password link is sent', function () {
@@ -388,3 +401,145 @@ test('selecting the client role does not pre-select any area', function () {
         ->set('role', 'client')
         ->assertSet('area_ids', []);
 });
+
+test('editing a user pre-fills the form with their current name and email', function () {
+    $admin = User::factory()->admin()->create();
+    $target = User::factory()->create(['name' => 'Ana Pérez', 'email' => 'ana@example.com']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $target->id)
+        ->assertSet('editingUserId', $target->id)
+        ->assertSet('editingName', 'Ana Pérez')
+        ->assertSet('editingEmail', 'ana@example.com');
+});
+
+test('an admin can change only a user\'s name and the email verification is kept', function () {
+    $admin = User::factory()->admin()->create();
+    $target = User::factory()->create(['name' => 'Ana Pérez', 'email' => 'ana@example.com']);
+    $verifiedAt = $target->email_verified_at;
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $target->id)
+        ->set('editingName', 'Ana María Pérez')
+        ->call('updateUser')
+        ->assertHasNoErrors()
+        ->assertSet('editingUserId', null);
+
+    $target->refresh();
+
+    expect($target->name)->toBe('Ana María Pérez')
+        ->and($target->email)->toBe('ana@example.com')
+        ->and($target->email_verified_at?->toDateTimeString())->toBe($verifiedAt->toDateTimeString());
+});
+
+test('changing a user\'s email clears the verification and touches nothing else', function () {
+    Notification::fake();
+
+    $admin = User::factory()->admin()->create();
+    $area = Area::factory()->create();
+    $target = User::factory()->withAreas($area)->create(['name' => 'Ana Pérez', 'email' => 'ana@example.com']);
+    $passwordHash = $target->password;
+    $role = $target->role;
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $target->id)
+        ->set('editingEmail', 'ana.perez@example.com')
+        ->call('updateUser')
+        ->assertHasNoErrors();
+
+    $target->refresh();
+
+    expect($target->email)->toBe('ana.perez@example.com')
+        ->and($target->name)->toBe('Ana Pérez')
+        ->and($target->email_verified_at)->toBeNull()
+        ->and($target->password)->toBe($passwordHash)
+        ->and($target->role)->toBe($role)
+        ->and($target->areas()->pluck('areas.id')->all())->toBe([$area->id]);
+
+    Notification::assertNothingSent();
+});
+
+test('a user logs in with the new email after an admin changes it', function () {
+    $admin = User::factory()->admin()->create();
+    $target = User::factory()->create(['email' => 'ana@example.com']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $target->id)
+        ->set('editingEmail', 'ana.perez@example.com')
+        ->call('updateUser')
+        ->assertHasNoErrors();
+
+    auth()->logout();
+
+    $this->post(route('login.store'), ['email' => 'ana@example.com', 'password' => 'password']);
+    $this->assertGuest();
+
+    $this->post(route('login.store'), ['email' => 'ana.perez@example.com', 'password' => 'password']);
+    $this->assertAuthenticatedAs($target);
+});
+
+test('an admin can edit themselves and another admin', function () {
+    $admin = User::factory()->admin()->create();
+    $otherAdmin = User::factory()->admin()->create();
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $admin->id)
+        ->set('editingName', 'Admin Renombrado')
+        ->call('updateUser')
+        ->assertHasNoErrors();
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $otherAdmin->id)
+        ->set('editingEmail', 'otro.admin@example.com')
+        ->call('updateUser')
+        ->assertHasNoErrors();
+
+    expect($admin->fresh()->name)->toBe('Admin Renombrado')
+        ->and($otherAdmin->fresh()->email)->toBe('otro.admin@example.com');
+});
+
+test('editing a user to an email another user has is rejected', function () {
+    $admin = User::factory()->admin()->create();
+    $existing = User::factory()->create();
+    $target = User::factory()->create(['email' => 'ana@example.com']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $target->id)
+        ->set('editingEmail', $existing->email)
+        ->call('updateUser')
+        ->assertHasErrors(['editingEmail' => 'unique']);
+
+    expect($target->fresh()->email)->toBe('ana@example.com');
+});
+
+test('editing a user with an invalid name or email is rejected', function (string $field, string $value) {
+    $admin = User::factory()->admin()->create();
+    $target = User::factory()->create(['name' => 'Ana Pérez', 'email' => 'ana@example.com']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('users.admin-user-list')
+        ->call('startEditingUser', $target->id)
+        ->set($field, $value)
+        ->call('updateUser')
+        ->assertHasErrors([$field]);
+
+    expect($target->fresh()->only(['name', 'email']))->toBe(['name' => 'Ana Pérez', 'email' => 'ana@example.com']);
+})->with([
+    'nombre vacío' => ['editingName', ''],
+    'nombre demasiado largo' => ['editingName', str_repeat('a', 256)],
+    'email vacío' => ['editingEmail', ''],
+    'email mal formado' => ['editingEmail', 'no-es-un-email'],
+]);
