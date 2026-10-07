@@ -30,6 +30,7 @@ new class extends Component
             'assigned_to' => __('Asignación'),
             'difficulty' => __('Dificultad'),
             'details' => __('Detalles editados'),
+            'collaborators' => __('Colaboradores'),
             default => $field,
         };
     }
@@ -67,6 +68,17 @@ new class extends Component
             ->implode(', ');
     }
 
+    /**
+     * A collaborator entry holds the user on one side only: added when it is
+     * the new value, removed when it is the old one.
+     */
+    public function collaboratorChangeLabel(TicketHistory $entry): string
+    {
+        return $entry->to_value !== null
+            ? __('se agregó a :name', ['name' => $this->userLabel($entry->to_value)])
+            : __('se quitó a :name', ['name' => $this->userLabel($entry->from_value)]);
+    }
+
     private function userLabel(?string $userId): string
     {
         if ($userId === null) {
@@ -87,6 +99,8 @@ new class extends Component
                 <span class="font-medium">{{ $this->fieldLabel($entry->field) }}:</span>
                 @if ($entry->field === 'details')
                     <span>{{ $this->editedFieldsLabel($entry->to_value) }}</span>
+                @elseif ($entry->field === 'collaborators')
+                    <span>{{ $this->collaboratorChangeLabel($entry) }}</span>
                 @else
                     <span>{{ $this->valueLabel($entry->field, $entry->from_value) }}</span>
                     <flux:icon.arrow-right class="h-3 w-3 inline" />

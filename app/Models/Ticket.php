@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -136,6 +137,80 @@ class Ticket extends Model
     public function history(): HasMany
     {
         return $this->hasMany(TicketHistory::class)->orderBy('created_at');
+    }
+
+    /**
+     * Admins working on the ticket besides its assignee.
+     *
+     * Soft-deleted users stay listed until someone removes them, so the
+     * ticket never silently loses track of who worked on it.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function collaborators(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'ticket_collaborators')
+            ->withTimestamps()
+            ->withTrashed();
+    }
+
+    /**
+     * Make the user the ticket's assignee, or unassign it with null.
+     *
+     * The assignee is never also a collaborator, so promoting one takes them
+     * off that list; both changes land in the history. Callers authorize,
+     * check eligibility and wrap this in a transaction.
+     */
+    public function assignTo(?User $assignee): void
+    {
+        $this->update(['assigned_to' => $assignee?->id]);
+
+        if ($assignee !== null) {
+            $this->removeCollaborator($assignee);
+        }
+    }
+
+    /**
+     * Add a collaborator and record it in the history.
+     *
+     * Callers authorize and decide who is eligible; this only keeps the pivot
+     * and the history in step, and does nothing if they already collaborate.
+     */
+    public function addCollaborator(User $user): void
+    {
+        if ($this->collaborators()->whereKey($user->id)->exists()) {
+            return;
+        }
+
+        $this->collaborators()->attach($user->id);
+        $this->recordCollaboratorChange(from: null, to: $user->id);
+    }
+
+    /**
+     * Remove a collaborator and record it in the history, if they were one.
+     */
+    public function removeCollaborator(User $user): void
+    {
+        if ($this->collaborators()->detach($user->id) === 0) {
+            return;
+        }
+
+        $this->recordCollaboratorChange(from: $user->id, to: null);
+    }
+
+    /**
+     * TicketObserver only sees the ticket's own columns, so pivot changes are
+     * written to the history here.
+     */
+    private function recordCollaboratorChange(?int $from, ?int $to): void
+    {
+        TicketHistory::create([
+            'ticket_id' => $this->id,
+            'user_id' => auth()->id(),
+            'field' => 'collaborators',
+            'from_value' => $from !== null ? (string) $from : null,
+            'to_value' => $to !== null ? (string) $to : null,
+        ]);
     }
 
     public function assignedTo(): BelongsTo

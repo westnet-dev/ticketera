@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\Role;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -78,7 +77,15 @@ new class extends Component
 
         Gate::authorize('assign', $ticket);
 
-        DB::transaction(fn () => $ticket->update(['assigned_to' => $userId !== null && $userId !== '' ? $userId : null]));
+        $wantsAssignee = $userId !== null && $userId !== '';
+        $assignee = $wantsAssignee ? User::assignable()->find((int) $userId) : null;
+
+        // Only active admins can take a ticket; anything else is a tampered request.
+        if ($wantsAssignee && $assignee === null) {
+            return;
+        }
+
+        DB::transaction(fn () => $ticket->assignTo($assignee));
     }
 
     public function sort(string $column): void
@@ -154,8 +161,7 @@ new class extends Component
             'sortDirection' => $sortDirection,
             'statusFilter' => $this->statusFilter,
             'assignedFilter' => $this->assignedFilter,
-            'assignableUsers' => User::query()
-                ->where('role', Role::Admin)
+            'assignableUsers' => User::assignable()
                 ->orderBy('name')
                 ->get(),
             // Only authors with a ticket this listing can actually show, so the

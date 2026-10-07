@@ -7,6 +7,7 @@ use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -60,6 +61,20 @@ class User extends Authenticatable
     }
 
     /**
+     * Users a ticket can be assigned to: active admins. Soft-deleted accounts
+     * are already left out by SoftDeletes.
+     *
+     * Both the options offered and the check on what comes back go through
+     * here, so they cannot drift apart.
+     *
+     * @param  Builder<User>  $query
+     */
+    protected function scopeAssignable($query): void
+    {
+        $query->where('role', Role::Admin);
+    }
+
+    /**
      * Count how many admin accounts are still active (not soft-deleted).
      */
     public static function activeAdminCount(): int
@@ -105,6 +120,16 @@ class User extends Authenticatable
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class);
+    }
+
+    /**
+     * Tickets this user works on as a collaborator, not as their assignee.
+     *
+     * @return BelongsToMany<Ticket, $this>
+     */
+    public function collaboratingTickets(): BelongsToMany
+    {
+        return $this->belongsToMany(Ticket::class, 'ticket_collaborators')->withTimestamps();
     }
 
     /**

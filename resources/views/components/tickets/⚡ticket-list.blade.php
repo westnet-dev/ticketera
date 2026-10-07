@@ -104,6 +104,9 @@ new class extends Component
 
         $query = $this->tabQuery($user, $areas, $this->area)
             ->with(['user', 'assignedTo', 'category'])
+            ->when($user->isAdmin(), fn (Builder $query) => $query->withExists([
+                'collaborators as is_collaborator' => fn (Builder $query) => $query->whereKey($user->id),
+            ]))
             ->search($this->search);
 
         $this->applyStatus($query, $user, $status);
@@ -184,8 +187,12 @@ new class extends Component
                 ->where(fn (Builder $query) => $query
                     ->whereNull('tickets.area_id')
                     ->orWhereNotIn('tickets.area_id', $areas->pluck('id'))),
+            // Collaborations count as theirs too. Grouped so the orWhere cannot
+            // escape the draft filter or anything chained after it.
             self::TAB_ASSIGNED => Ticket::query()
-                ->where('tickets.assigned_to', $user->id)
+                ->where(fn (Builder $query) => $query
+                    ->where('tickets.assigned_to', $user->id)
+                    ->orWhereHas('collaborators', fn (Builder $query) => $query->whereKey($user->id)))
                 ->where('tickets.status', '!=', 'draft'),
             default => Ticket::query()
                 ->visibleTo($user)
@@ -328,7 +335,11 @@ new class extends Component
                         <flux:table.row :key="$ticket->id">
                             <flux:table.cell class="text-xs text-neutral-400">#TK-{{ $ticket->id }}</flux:table.cell>
                             <flux:table.cell class="whitespace-normal">
-                                <x-tickets.subject-cell :ticket="$ticket" :show-assignee="auth()->user()->isAdmin()" />
+                                <x-tickets.subject-cell :ticket="$ticket" :show-assignee="auth()->user()->isAdmin()">
+                                    @if ($ticket->is_collaborator)
+                                        <flux:badge size="sm" color="sky">{{ __('Colaborador') }}</flux:badge>
+                                    @endif
+                                </x-tickets.subject-cell>
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:badge size="sm" :color="$ticket->statusColor()">

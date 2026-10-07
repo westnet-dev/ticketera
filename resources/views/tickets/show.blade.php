@@ -114,6 +114,28 @@
                         </dd>
                     </div>
 
+                    @if (auth()->user()->isAdmin())
+                        <div>
+                            <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Asignado a') }}</dt>
+                            <dd class="mt-1">
+                                @can('assign', $ticket)
+                                    <livewire:tickets.ticket-assignee-selector :ticket="$ticket" />
+                                @else
+                                    <span class="text-neutral-900 dark:text-white">
+                                        {{ $ticket->assigned_to === null ? __('Sin asignar') : ($ticket->assignedTo?->name ?? __('un usuario eliminado')) }}
+                                    </span>
+                                @endcan
+                            </dd>
+                        </div>
+
+                        <div>
+                            <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Colaboradores') }}</dt>
+                            <dd class="mt-1">
+                                <livewire:tickets.ticket-collaborators :ticket="$ticket" />
+                            </dd>
+                        </div>
+                    @endif
+
                     <div>
                         <dt class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Prioridad') }}</dt>
                         <dd class="mt-1"><x-tickets.priority-indicator :priority="$ticket->priority" /></dd>
