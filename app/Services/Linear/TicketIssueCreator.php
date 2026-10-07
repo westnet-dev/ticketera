@@ -42,7 +42,9 @@ class TicketIssueCreator
      */
     private function createAndLink(Ticket $ticket, User $creator): TicketLinearLink
     {
-        $id = (string) Str::uuid();
+        // A retry reuses the id, so an issue created behind a timeout fails as a duplicate and is found below.
+        $idKey = "linear-issue-create:{$ticket->id}:issue-id";
+        $id = Cache::remember($idKey, now()->addDay(), fn () => (string) Str::uuid());
         $assigneeId = $this->linear->findUserIdByEmail($creator->email);
 
         try {
@@ -66,7 +68,10 @@ class TicketIssueCreator
             $source = LinearLinkSource::Manual;
         }
 
-        return $ticket->linkLinearIssue($issue, $source, $creator->id);
+        $link = $ticket->linkLinearIssue($issue, $source, $creator->id);
+        Cache::forget($idKey);
+
+        return $link;
     }
 
     private function description(Ticket $ticket, User $creator): string

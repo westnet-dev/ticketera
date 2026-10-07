@@ -173,6 +173,57 @@ test('an issue created behind a failed response is found by its id instead of cr
         ->and($ticket->linearLinks()->sole()->identifier)->toBe('GES-950');
 });
 
+test('a retry after an unconfirmed creation reuses the issue id instead of creating a second issue', function () {
+    $linearCreatedIt = false;
+    fakeLinearOperations([
+        'CreateIssue' => function () use (&$linearCreatedIt) {
+            return $linearCreatedIt
+                ? Http::response(['errors' => [['message' => 'Entity already exists']], 'data' => null])
+                : Http::response('Gateway timeout', 504);
+        },
+        'Issues' => function (Request $request) use (&$linearCreatedIt) {
+            return ['issues' => ['nodes' => $linearCreatedIt
+                ? [[...linearIssueNode('GES-950'), 'id' => $request['variables']['filter']['id']['in'][0]]]
+                : [],
+            ]];
+        },
+    ]);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-list')
+        ->call('createLinearIssue', $ticket->id)
+        ->assertDispatched('toast-show', fn (string $name, array $params) => $params['dataset']['variant'] === 'danger');
+
+    expect($ticket->linearLinks()->exists())->toBeFalse();
+
+    $linearCreatedIt = true;
+
+    Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+
+    [$first, $retry] = linearRequests('CreateIssue');
+    $sentIds = collect([...linearRequests('CreateIssue'), ...linearRequests('Issues')])
+        ->map(fn (Request $request) => $request['variables']['input']['id'] ?? $request['variables']['filter']['id']['in'][0])
+        ->unique();
+
+    expect($retry['variables']['input']['id'])->toBe($first['variables']['input']['id'])
+        ->and($sentIds->all())->toBe([$first['variables']['input']['id']])
+        ->and($ticket->linearLinks()->sole()->identifier)->toBe('GES-950');
+});
+
+test('the issue id kept for retries is forgotten once the issue is linked', function () {
+    fakeLinearOperations();
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+
+    expect($ticket->linearLinks()->exists())->toBeTrue()
+        ->and(Cache::has("linear-issue-create:{$ticket->id}:issue-id"))->toBeFalse();
+});
+
 test('when linear rejects the issue the admin is told and nothing is linked', function () {
     fakeLinearOperations(['CreateIssue' => Http::response(['errors' => [['message' => 'Forbidden']], 'data' => null])]);
     $ticket = Ticket::factory()->create(['status' => 'open']);
