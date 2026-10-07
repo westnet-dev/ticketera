@@ -116,6 +116,20 @@ class User extends Authenticatable
     }
 
     /**
+     * Whether the user currently belongs to the given area.
+     */
+    public function belongsToArea(?int $areaId): bool
+    {
+        if ($areaId === null) {
+            return false;
+        }
+
+        return $this->relationLoaded('areas')
+            ? $this->areas->contains('id', $areaId)
+            : $this->areas()->whereKey($areaId)->exists();
+    }
+
+    /**
      * How many unclosed tickets count against the ticket cap for a new ticket.
      *
      * The cap is an area-wide budget, so a ticket filed for an area is measured
@@ -127,5 +141,16 @@ class User extends Authenticatable
     {
         return $area?->tickets()->unclosed()->count()
             ?? $this->tickets()->unclosed()->count();
+    }
+
+    /**
+     * How many more tickets can be filed for the area before the cap blocks it.
+     *
+     * Built on the same count TicketPolicy::create checks, so the listing never
+     * offers room the creation form would then refuse.
+     */
+    public function remainingTicketSlots(?Area $area): int
+    {
+        return max(0, TicketSetting::current()->max_open_tickets_per_area - $this->openTicketCountForLimit($area));
     }
 }

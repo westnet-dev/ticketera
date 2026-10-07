@@ -21,6 +21,10 @@ class TicketPolicy
 
     /**
      * Determine whether the user can view the model.
+     *
+     * Members of the area a ticket was filed for can read it, since they share
+     * its ticket cap. Reading is all they get: every action on the ticket keeps
+     * checking for its author. Drafts stay private to their author.
      */
     public function view(User $user, Ticket $ticket): bool
     {
@@ -28,7 +32,20 @@ class TicketPolicy
             return $user->id === $ticket->user_id;
         }
 
-        return $user->id === $ticket->user_id || $user->isAdmin();
+        return $user->id === $ticket->user_id
+            || $user->isAdmin()
+            || $user->belongsToArea($ticket->area_id);
+    }
+
+    /**
+     * Determine whether the user can post in the ticket's chat.
+     *
+     * Teammates who can read the ticket through its area can also follow up on
+     * it and give feedback, alongside its author and the team.
+     */
+    public function reply(User $user, Ticket $ticket): bool
+    {
+        return $ticket->isRequestedBy($user) || $user->isAdmin();
     }
 
     /**
@@ -84,12 +101,14 @@ class TicketPolicy
     /**
      * Determine whether the user can validate the ticket's resolution.
      *
-     * Only the ticket's author validates: an admin who filed it on their behalf
-     * would otherwise be signing off on their own team's work.
+     * The requesting side validates: the author or any member of the ticket's
+     * area, since they share the need it covers. Never an admin, not even one
+     * who filed it on a client's behalf: that would be signing off on their own
+     * team's work.
      */
     public function validateResolution(User $user, Ticket $ticket): bool
     {
-        return $user->id === $ticket->user_id && $ticket->validation_status === ValidationStatus::Pending;
+        return $ticket->isRequestedBy($user) && $ticket->validation_status === ValidationStatus::Pending;
     }
 
     /**

@@ -12,7 +12,7 @@ test('a client sees both resolved and cancelled tickets in the finished tickets 
     $openTicket = Ticket::factory()->for($user)->create(['status' => 'open']);
 
     $this->actingAs($user)
-        ->get(route('ticket.finished'))
+        ->get(route('ticket.index', ['status' => 'finished']))
         ->assertOk()
         ->assertSee($resolvedTicket->title)
         ->assertSee($cancelledTicket->title)
@@ -24,9 +24,9 @@ test('a client with no finished tickets sees an empty state', function () {
     Ticket::factory()->for($user)->create(['status' => 'open']);
 
     $this->actingAs($user)
-        ->get(route('ticket.finished'))
+        ->get(route('ticket.index', ['status' => 'finished']))
         ->assertOk()
-        ->assertSee(__('No tienes tickets finalizados.'));
+        ->assertSee(__('No hay tickets finalizados.'));
 });
 
 test('a client cannot see another client\'s finished tickets', function () {
@@ -36,7 +36,7 @@ test('a client cannot see another client\'s finished tickets', function () {
     $intruder = User::factory()->create(['role' => Role::Client]);
 
     $this->actingAs($intruder)
-        ->get(route('ticket.finished'))
+        ->get(route('ticket.index', ['status' => 'finished']))
         ->assertOk()
         ->assertDontSee($ownerResolvedTicket->title);
 });

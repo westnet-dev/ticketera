@@ -2,26 +2,21 @@
 
 use App\Enums\Level;
 use App\Enums\TriageStatus;
+use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\User;
 use Livewire\Livewire;
 
-test('the ticket list shows summary cards and tab counts for the user', function () {
-    $client = User::factory()->create();
-    Ticket::factory()->for($client)->count(2)->create(['status' => 'open']);
-    Ticket::factory()->for($client)->create(['status' => 'resolved']);
-    Ticket::factory()->for($client)->draft()->create();
-    Ticket::factory()->create(['status' => 'open']);
+test('the ticket list shows the header, the area tabs and the filters', function () {
+    $area = Area::factory()->create(['title' => 'Comercial']);
+    $client = User::factory()->withAreas($area)->create();
+    Ticket::factory()->for($client)->count(2)->create(['area_id' => $area->id, 'status' => 'open']);
 
     $this->actingAs($client)
         ->get(route('ticket.index'))
         ->assertOk()
-        ->assertViewHas('ticketCounts', fn (array $counts) => $counts['total'] === 3
-            && $counts['ongoing'] === 2
-            && $counts['finished'] === 1
-            && $counts['drafts'] === 1)
-        ->assertSeeInOrder(['Mis tickets', 'Total de tickets', 'En curso', 'Por validar', 'Finalizados'])
-        ->assertSee('2 en curso');
+        ->assertSeeInOrder(['Mis tickets', 'Nuevo ticket', 'Comercial', 'cupos disponibles', 'Buscar', 'Estado'])
+        ->assertSeeHtml('<span class="text-xs font-normal text-neutral-400">2</span>');
 });
 
 test('admins see how many ongoing tickets are assigned to them', function () {
@@ -29,10 +24,11 @@ test('admins see how many ongoing tickets are assigned to them', function () {
     Ticket::factory()->count(2)->create(['status' => 'in_progress', 'assigned_to' => $admin->id]);
     Ticket::factory()->create(['status' => 'resolved', 'assigned_to' => $admin->id]);
 
-    $this->actingAs($admin)
-        ->get(route('ticket.index'))
-        ->assertOk()
-        ->assertSee('2 asignados a vos');
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.ticket-list')
+        ->assertViewHas('tabs', fn ($tabs) => $tabs['assigned']['count'] === 2)
+        ->assertSee('Asignados a mí');
 });
 
 test('each ticket row shows its id, priority level and client', function () {

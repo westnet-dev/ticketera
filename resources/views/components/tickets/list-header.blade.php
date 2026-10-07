@@ -1,13 +1,6 @@
-@props([
-    'ticketCounts',
-])
-
 <x-page-header :title="__('Mis tickets')">
     <x-slot:description>
-        {{ trans_choice(':count en curso|:count en curso', $ticketCounts['ongoing']) }}
-        @if (auth()->user()->isAdmin())
-            · {{ trans_choice(':count asignado a vos|:count asignados a vos', $ticketCounts['assigned_to_me']) }}
-        @endif
+        {{ __('Los tickets de tus áreas, uno por pestaña') }}
     </x-slot:description>
 
     <x-slot:actions>

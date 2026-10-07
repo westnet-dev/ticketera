@@ -157,7 +157,7 @@
                     <ul class="ms-5 list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                         <li>{{ __('Los borradores son privados: nadie del equipo los ve hasta que los enviás.') }}</li>
                         <li>{{ __('No cuentan para el límite de tickets.') }}</li>
-                        <li>{{ __('Los encontrás en la pestaña Borradores, donde podés editarlos, enviarlos o eliminarlos.') }}</li>
+                        <li>{{ __('Los encontrás eligiendo "Borradores" en el filtro de estado de Mis tickets, donde podés editarlos, enviarlos o eliminarlos.') }}</li>
                         <li>{{ __('Al enviarlo, se exigen todos los campos obligatorios y se controla el límite de tickets.') }}</li>
                     </ul>
                 </section>
@@ -214,7 +214,7 @@
                     <ul class="ms-5 list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                         <li>{{ __('Chat: es la conversación con el equipo sobre ese pedido. Se actualiza solo cada pocos segundos, no hace falta recargar la página.') }}</li>
                         <li>{{ __('Historial: registra cada cambio de estado, de revisión, de validación y de asignación, con quién lo hizo y cuándo.') }}</li>
-                        <li>{{ __('Si un administrador cargó el ticket por vos, lo vas a ver indicado en las propiedades. El ticket es tuyo igual y lo validás vos.') }}</li>
+                        <li>{{ __('Si un administrador cargó el ticket por vos, lo vas a ver indicado en las propiedades. El ticket es tuyo igual y lo validás vos o alguien de tu área.') }}</li>
                     </ul>
                 </section>
 
@@ -222,7 +222,7 @@
                 <section id="validacion" class="flex scroll-mt-6 flex-col gap-3">
                     <flux:heading size="lg">{{ $sections['validacion'] }}</flux:heading>
                     <flux:text>
-                        {{ __('Cuando el equipo marca tu ticket como Resuelto, te toca confirmar el resultado. Lo vas a ver en la pestaña "Por validar" y como aviso en el propio ticket.') }}
+                        {{ __('Cuando el equipo marca tu ticket como Resuelto, te toca confirmar el resultado. Lo vas a ver con el filtro "Por validar" de Mis tickets y como aviso en el propio ticket.') }}
                     </flux:text>
                     <div class="grid gap-3 md:grid-cols-2">
                         <div class="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
@@ -242,7 +242,7 @@
                         </div>
                     </div>
                     <flux:text>
-                        {{ __('Solo la persona a cuyo nombre está el ticket puede validarlo.') }}
+                        {{ __('Pueden validarlo la persona a cuyo nombre está el ticket y cualquier compañero de su misma área. En el historial queda registrado quién lo validó.') }}
                     </flux:text>
                 </section>
 
@@ -282,13 +282,15 @@
                 {{-- Mis tickets --}}
                 <section id="mis-tickets" class="flex scroll-mt-6 flex-col gap-3">
                     <flux:heading size="lg">{{ $sections['mis-tickets'] }}</flux:heading>
-                    <flux:text>{{ __('En la sección Tickets tus pedidos se organizan en pestañas:') }}</flux:text>
+                    <flux:text>{{ __('En la sección Tickets hay una pestaña por cada área a la que pertenecés, con todos los tickets enviados de esa área, no solo los tuyos. Si tenés tickets propios fuera de tus áreas actuales, aparecen en la pestaña "Sin área"; si no tenés área asignada, ves una única pestaña con tus tickets.') }}</flux:text>
+                    <flux:text>{{ __('Cada pestaña de área muestra cuántos cupos le quedan antes de llegar al límite de tickets sin cerrar. Podés buscar por título o número de ticket (por ejemplo #TK-123) y filtrar por estado:') }}</flux:text>
                     <dl class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                         @foreach ([
                             [__('En curso'), __('Tickets Abiertos, En Progreso, Pausados o Esperando respuesta.')],
-                            [__('Por validar'), __('Tickets resueltos que esperan tu confirmación. El número entre paréntesis indica cuántos tenés pendientes.')],
+                            [__('Por validar'), __('Tickets resueltos que esperan la confirmación de su autor.')],
                             [__('Finalizados'), __('Tickets Resueltos o Cancelados.')],
-                            [__('Borradores'), __('Pedidos que guardaste sin enviar.')],
+                            [__('Borradores'), __('Pedidos que guardaste sin enviar. Solo ves los tuyos.')],
+                            [__('Todos'), __('Todos los tickets de la pestaña.')],
                         ] as [$term, $definition])
                             <div>
                                 <dt class="font-medium">{{ $term }}</dt>
@@ -317,8 +319,8 @@
                         @foreach ([
                             [__('¿Puedo editar un ticket después de enviarlo?'), __('No directamente. Si falta información o cambió algo, escribilo en el chat del ticket. La única excepción es cuando el ticket es rechazado en la revisión inicial: ahí podés corregirlo y reenviarlo.')],
                             [__('¿Por qué no puedo crear un ticket nuevo?'), __('Probablemente se alcanzó el límite de tickets sin cerrar de tu área. Revisá la sección Límite de tickets; cuando se resuelva o cancele alguno vas a poder crear otro. Mientras tanto podés guardarlo como borrador.')],
-                            [__('¿Quién ve mis tickets?'), __('Vos y los administradores. Otros clientes, incluso de tu misma área, no ven tus tickets.')],
-                            [__('¿Qué pasa si no valido un ticket resuelto?'), __('Queda en la pestaña "Por validar" hasta que respondas. Validarlo le confirma al equipo que el trabajo terminó.')],
+                            [__('¿Quién ve mis tickets?'), __('Vos, los administradores y las personas de tu misma área. Tus compañeros de área pueden comentar en el chat y validar la resolución; editar el ticket queda para vos. Los borradores son solo tuyos.')],
+                            [__('¿Qué pasa si no valido un ticket resuelto?'), __('Queda en el filtro "Por validar" hasta que respondas. Validarlo le confirma al equipo que el trabajo terminó.')],
                             [__('Me respondieron en el chat, ¿tengo que recargar?'), __('No, el chat se actualiza solo. Si igual no ves los mensajes, recargá la página.')],
                             [__('¿Puedo cancelar un ticket que ya no necesito?'), __('Pedilo en el chat del ticket y un administrador lo va a pasar a Cancelado.')],
                         ] as [$question, $answer])

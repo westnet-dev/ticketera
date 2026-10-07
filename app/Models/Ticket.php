@@ -152,19 +152,24 @@ class Ticket extends Model
     }
 
     /**
-     * Tickets shown in a user's own listings: the ones they authored and,
-     * for admins, also the ones assigned to them.
+     * Tickets a user can read from their own listings: the ones they authored
+     * and the submitted ones filed for an area they currently belong to.
      *
-     * @param  Builder  $query
+     * Membership is read off the area stored on the ticket, the same one the
+     * ticket cap counts, so what a user sees matches the budget they share.
+     * Drafts stay private to their author. The orWhere is wrapped so it cannot
+     * escape filters chained after this scope.
+     *
+     * @param  Builder<Ticket>  $query
      */
-    protected function scopeListedFor($query, User $user): void
+    protected function scopeVisibleTo($query, User $user): void
     {
         $query->where(function (Builder $q) use ($user) {
-            $q->where('user_id', $user->id);
-
-            if ($user->isAdmin()) {
-                $q->orWhere('assigned_to', $user->id);
-            }
+            $q->where('tickets.user_id', $user->id)
+                ->orWhere(function (Builder $q) use ($user) {
+                    $q->where('tickets.status', '!=', 'draft')
+                        ->whereIn('tickets.area_id', $user->areas()->select('areas.id'));
+                });
         });
     }
 
@@ -441,6 +446,22 @@ class Ticket extends Model
     public function isAwaitingResponse(): bool
     {
         return $this->status === 'awaiting_response';
+    }
+
+    /**
+     * Whether the user speaks for the side that asked for this ticket: its
+     * author or a member of the area it was filed for.
+     *
+     * Admins never count, even when they belong to the area: they are the team
+     * doing the work, and signing off on it would be grading themselves.
+     */
+    public function isRequestedBy(User $user): bool
+    {
+        if ($user->id === $this->user_id) {
+            return true;
+        }
+
+        return ! $user->isAdmin() && $user->belongsToArea($this->area_id);
     }
 
     /**

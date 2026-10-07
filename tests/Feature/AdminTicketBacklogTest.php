@@ -3,7 +3,7 @@
 use App\Models\Ticket;
 use App\Models\User;
 
-test('an admin sees in their ticket list a ticket created by someone else but assigned to them', function () {
+test('an admin sees in their assigned tab a ticket created by someone else but assigned to them', function () {
     $admin = User::factory()->admin()->create();
     $creator = User::factory()->create();
     Ticket::factory()->create([
@@ -14,7 +14,7 @@ test('an admin sees in their ticket list a ticket created by someone else but as
     ]);
 
     $this->actingAs($admin)
-        ->get(route('ticket.index'))
+        ->get(route('ticket.index', ['area' => 'assigned']))
         ->assertOk()
         ->assertSee('Pedido de otro asignado a mí');
 });
@@ -34,7 +34,7 @@ test('an admin still sees tickets they created themselves', function () {
         ->assertSee('Mi propio pedido');
 });
 
-test('a resolved ticket assigned to an admin appears only in the finished tab', function () {
+test('a resolved ticket assigned to an admin appears only under the finished filter', function () {
     $admin = User::factory()->admin()->create();
     $creator = User::factory()->create();
     Ticket::factory()->create([
@@ -46,8 +46,8 @@ test('a resolved ticket assigned to an admin appears only in the finished tab', 
 
     $this->actingAs($admin);
 
-    $this->get(route('ticket.index'))->assertOk()->assertDontSee('Pedido resuelto asignado');
-    $this->get(route('ticket.finished'))->assertOk()->assertSee('Pedido resuelto asignado');
+    $this->get(route('ticket.index', ['area' => 'assigned']))->assertOk()->assertDontSee('Pedido resuelto asignado');
+    $this->get(route('ticket.index', ['area' => 'assigned', 'status' => 'finished']))->assertOk()->assertSee('Pedido resuelto asignado');
 });
 
 test('a client does not see tickets assigned to them, only tickets they created', function () {

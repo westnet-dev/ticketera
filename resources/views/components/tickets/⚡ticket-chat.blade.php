@@ -3,6 +3,7 @@
 use App\Models\Ticket;
 use App\Rules\RichTextLength;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
 new class extends Component
@@ -13,6 +14,8 @@ new class extends Component
 
     public function send(): void
     {
+        Gate::authorize('reply', $this->ticket);
+
         $this->validate([
             'body' => ['required', 'string', new RichTextLength(min: 1, max: 2000)],
         ]);
@@ -23,7 +26,7 @@ new class extends Component
                 'body' => $this->body,
             ]);
 
-            if ($this->isAuthorReplyToAwaitingTicket()) {
+            if ($this->isRequesterReplyToAwaitingTicket()) {
                 $this->ticket->update(['status' => 'in_progress']);
             }
         });
@@ -32,14 +35,15 @@ new class extends Component
     }
 
     /**
-     * The author answering a ticket that was waiting on them puts it back in
-     * the team's queue. This is a system transition rather than a manual status
-     * change, so it does not go through the `changeStatus` gate.
+     * The requesting side (the author or a teammate from the ticket's area)
+     * answering a ticket that was waiting on them puts it back in the team's
+     * queue. This is a system transition rather than a manual status change,
+     * so it does not go through the `changeStatus` gate.
      */
-    private function isAuthorReplyToAwaitingTicket(): bool
+    private function isRequesterReplyToAwaitingTicket(): bool
     {
         return $this->ticket->isAwaitingResponse()
-            && $this->ticket->user_id === auth()->id();
+            && $this->ticket->isRequestedBy(auth()->user());
     }
 
     public function with(): array
@@ -56,7 +60,7 @@ new class extends Component
         <flux:heading size="sm">{{ __('Conversación') }}</flux:heading>
     </div>
 
-    @if ($ticket->isAwaitingResponse() && $ticket->user_id === auth()->id())
+    @if ($ticket->isAwaitingResponse() && $ticket->isRequestedBy(auth()->user()))
         <div class="border-b border-neutral-200 p-4 dark:border-neutral-700">
             <flux:callout icon="chat-bubble-left-ellipsis" color="purple" :heading="__('El equipo está esperando tu respuesta para continuar.')" />
         </div>
@@ -78,12 +82,14 @@ new class extends Component
         @endforelse
     </div>
 
-    <form wire:submit.prevent="send" class="mt-auto flex flex-col  gap-2 border-t border-neutral-200 p-4 dark:border-neutral-700">
-        <flux:field class="flex-1 relative">
-            <x-tickets.rich-editor wire:model="body" compact submit-on-enter class="relative " :placeholder="__('Escribí tu mensaje... (Shift+Enter para nueva línea)')" />
-            <flux:button type="submit" size="xs" variant="outline" icon="paper-airplane" class="ml-auto absolute! bottom-2 right-2" />
-            <flux:error name="body" />
-        </flux:field>
+    @can('reply', $ticket)
+        <form wire:submit.prevent="send" class="mt-auto flex flex-col  gap-2 border-t border-neutral-200 p-4 dark:border-neutral-700">
+            <flux:field class="flex-1 relative">
+                <x-tickets.rich-editor wire:model="body" compact submit-on-enter class="relative " :placeholder="__('Escribí tu mensaje... (Shift+Enter para nueva línea)')" />
+                <flux:button type="submit" size="xs" variant="outline" icon="paper-airplane" class="ml-auto absolute! bottom-2 right-2" />
+                <flux:error name="body" />
+            </flux:field>
 
-    </form>
+        </form>
+    @endcan
 </div>

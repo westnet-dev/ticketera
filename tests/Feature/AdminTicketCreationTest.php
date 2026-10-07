@@ -14,7 +14,7 @@ test('an admin can access the my-tickets screens', function () {
 
     $this->get(route('ticket.index'))->assertOk();
     $this->get(route('ticket.create'))->assertOk();
-    $this->get(route('ticket.finished'))->assertOk();
+    $this->get(route('ticket.index', ['status' => 'finished']))->assertOk();
 });
 
 test('a ticket created by an admin is approved without going through triage', function () {

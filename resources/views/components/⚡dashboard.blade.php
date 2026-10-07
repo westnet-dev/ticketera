@@ -35,7 +35,9 @@ new class extends Component
             'openCount' => (clone $myTickets)->open()->count(),
             'finishedCount' => (clone $myTickets)->finished()->count(),
             'pendingTriageCount' => (clone $myTickets)->where('triage_status', TriageStatus::Pending)->count(),
-            'pendingValidationCount' => (clone $myTickets)->pendingValidation()->count(),
+            // Teammates can validate the area's tickets too, so the prompt counts
+            // every ticket this user is able to sign off on, not only their own.
+            'pendingValidationCount' => Ticket::query()->visibleTo(auth()->user())->pendingValidation()->count(),
             'ticketsByPriority' => $this->countByPriority(clone $myTickets),
             'recentTickets' => (clone $myTickets)
                 ->orderByDesc('created_at')
@@ -124,7 +126,7 @@ new class extends Component
                     {{ __('Entrá a cada ticket para confirmar si el pedido quedó resuelto y calificar la solución.') }}
                 </flux:callout.text>
                 <x-slot name="actions">
-                    <flux:button size="sm" href="{{ route('ticket.pending-validation') }}" wire:navigate>
+                    <flux:button size="sm" href="{{ route('ticket.index', ['status' => 'pending_validation']) }}" wire:navigate>
                         {{ __('Ver pendientes') }}
                     </flux:button>
                 </x-slot>
