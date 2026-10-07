@@ -129,6 +129,11 @@ class LinearClient
                 ->post($this->url, ['query' => $query, 'variables' => $variables]);
         } catch (HttpClientException|InvalidArgumentException $exception) {
             // Caught so the request, with the key in its headers, never reaches the error page.
+            Log::warning('Linear API could not be reached.', [
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
             throw new LinearUnavailableException('Linear could not be reached.', previous: $exception);
         }
 

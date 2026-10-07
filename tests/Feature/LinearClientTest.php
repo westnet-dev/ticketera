@@ -3,8 +3,10 @@
 use App\Services\Linear\LinearClient;
 use App\Services\Linear\LinearIssue;
 use App\Services\Linear\LinearUnavailableException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     Http::preventStrayRequests();
@@ -120,6 +122,17 @@ test('it reports Linear as unavailable when the request fails', function (Closur
     'graphql error' => fn () => Http::response(['errors' => [['message' => 'Syntax error']], 'data' => null]),
     'connection failure' => fn () => Http::failedConnection(),
 ])->throws(LinearUnavailableException::class);
+
+test('a connection failure is logged without the API key', function () {
+    Log::spy();
+    Http::fake(['api.linear.app/*' => Http::failedConnection()]);
+
+    expect(fn () => app(LinearClient::class)->findByIdentifier('GES-911'))->toThrow(LinearUnavailableException::class);
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context) => $message === 'Linear API could not be reached.'
+        && $context['exception'] === ConnectionException::class
+        && ! str_contains(json_encode($context), 'lin_api_test_key'));
+});
 
 test('a malformed API url is reported as Linear being unavailable', function () {
     config(['services.linear.url' => 'https://api.linear app/graphql']);
