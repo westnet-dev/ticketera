@@ -126,13 +126,14 @@ class LinearClient
      * Fetch the current state of several issues by their Linear ids, with the URLs they attach.
      *
      * @param  list<string>  $ids
+     * @param  bool  $withTrashed  Also return issues deleted in Linear, flagged as trashed.
      * @return list<LinearIssue>
      *
      * @throws LinearUnavailableException
      */
-    public function findByIds(array $ids): array
+    public function findByIds(array $ids, bool $withTrashed = false): array
     {
-        return $ids === [] ? [] : $this->issues(['id' => ['in' => $ids]], count($ids), 'attachments { nodes { url } }');
+        return $ids === [] ? [] : $this->issues(['id' => ['in' => $ids]], count($ids), 'attachments { nodes { url } }', $withTrashed);
     }
 
     /**
@@ -159,26 +160,26 @@ class LinearClient
      *
      * @throws LinearUnavailableException
      */
-    private function issues(array $filter, int $first, string $extraFields = ''): array
+    private function issues(array $filter, int $first, string $extraFields = '', bool $withTrashed = false): array
     {
         $data = $this->query(
             'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first, includeArchived: true) { nodes { '.self::ISSUE_FIELDS.' '.$extraFields.' } } }',
             ['filter' => $filter, 'first' => $first],
         );
 
-        return $this->toIssues((array) data_get($data, 'issues.nodes', []));
+        return $this->toIssues((array) data_get($data, 'issues.nodes', []), $withTrashed);
     }
 
     /**
      * @param  array<array-key, mixed>  $nodes
      * @return list<LinearIssue>
      */
-    private function toIssues(array $nodes): array
+    private function toIssues(array $nodes, bool $withTrashed = false): array
     {
         $issues = [];
 
         foreach ($nodes as $node) {
-            if (is_array($node) && ($node['trashed'] ?? false) !== true) {
+            if (is_array($node) && ($withTrashed || ($node['trashed'] ?? false) !== true)) {
                 $issue = LinearIssue::fromNode($node);
                 $issues[$issue->id] = $issue;
             }

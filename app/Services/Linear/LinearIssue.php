@@ -19,6 +19,7 @@ final readonly class LinearIssue
         public string $stateType,
         public ?string $assigneeName,
         public array $attachmentUrls = [],
+        public bool $trashed = false,
     ) {}
 
     /**
@@ -42,6 +43,7 @@ final readonly class LinearIssue
             stateType: (string) data_get($node, 'state.type'),
             assigneeName: is_string($assigneeName) ? $assigneeName : null,
             attachmentUrls: array_values(array_filter((array) data_get($node, 'attachments.nodes.*.url', []), 'is_string')),
+            trashed: data_get($node, 'trashed') === true,
         );
     }
 

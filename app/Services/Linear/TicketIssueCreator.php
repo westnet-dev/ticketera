@@ -27,11 +27,12 @@ class TicketIssueCreator
     /**
      * Returns the new link, or the ticket's existing one if it got linked in the meantime.
      *
+     * A lock per ticket keeps two clicks, or two admins, from creating two issues.
+     *
      * @throws LinearUnavailableException
      */
     public function create(Ticket $ticket, User $creator): TicketLinearLink
     {
-        // Two clicks, or two admins, on the same ticket must not create two issues.
         $link = Cache::lock("linear-issue-create:{$ticket->id}", 30)->get(
             fn () => $ticket->linearLinks()->first() ?? $this->createAndLink($ticket, $creator),
         );
@@ -44,6 +45,10 @@ class TicketIssueCreator
     }
 
     /**
+     * The issue id is kept per ticket until the link is saved, so a retry after a timeout reuses it:
+     * Linear rejects the duplicate and the issue it did create is found instead.
+     *
+     * @throws TooManyLinearIssuesException
      * @throws LinearUnavailableException
      */
     private function createAndLink(Ticket $ticket, User $creator): TicketLinearLink
@@ -51,12 +56,11 @@ class TicketIssueCreator
         $key = "linear-issues:create:{$creator->id}";
 
         if (RateLimiter::tooManyAttempts($key, self::CREATIONS_PER_MINUTE)) {
-            throw new LinearUnavailableException('Too many Linear issues created in the last minute.');
+            throw new TooManyLinearIssuesException('Too many Linear issues created in the last minute.');
         }
 
         RateLimiter::hit($key);
 
-        // A retry reuses the id, so an issue created behind a timeout fails as a duplicate and is found below.
         $idKey = "linear-issue-create:{$ticket->id}:issue-id";
         $id = Cache::remember($idKey, now()->addDay(), fn () => (string) Str::uuid());
         $assigneeId = $this->linear->findUserIdByEmail($creator->email);
@@ -70,8 +74,7 @@ class TicketIssueCreator
                 assigneeId: $assigneeId,
             );
         } catch (LinearUnavailableException $exception) {
-            // A timeout can hide an issue that was created after all.
-            $issue = $this->linear->findByIds([$id])[0] ?? throw $exception;
+            $issue = $this->createdBehindFailure($id, $idKey) ?? throw $exception;
         }
 
         try {
@@ -86,6 +89,27 @@ class TicketIssueCreator
         Cache::forget($idKey);
 
         return $link;
+    }
+
+    /**
+     * The issue a failed creation may have created after all (e.g. behind a timeout).
+     *
+     * If it was deleted in Linear since, its id can never be created again, so it is forgotten
+     * and the next attempt gets a new one.
+     *
+     * @throws LinearUnavailableException
+     */
+    private function createdBehindFailure(string $id, string $idKey): ?LinearIssue
+    {
+        $issue = $this->linear->findByIds([$id], withTrashed: true)[0] ?? null;
+
+        if ($issue?->trashed) {
+            Cache::forget($idKey);
+
+            return null;
+        }
+
+        return $issue;
     }
 
     private function description(Ticket $ticket, User $creator): string

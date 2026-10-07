@@ -212,6 +212,48 @@ test('a retry after an unconfirmed creation reuses the issue id instead of creat
         ->and($ticket->linearLinks()->sole()->identifier)->toBe('GES-950');
 });
 
+test('an issue deleted in linear after a failed creation lets the next attempt use a new id', function () {
+    $attempts = 0;
+    fakeLinearOperations([
+        'CreateIssue' => function () use (&$attempts) {
+            return ++$attempts === 1
+                ? Http::response('Gateway timeout', 504)
+                : Http::response(['data' => ['issueCreate' => ['success' => true, 'issue' => linearIssueNode('GES-951')]]]);
+        },
+        'Issues' => fn (Request $request) => ['issues' => ['nodes' => [
+            [...linearIssueNode('GES-950'), 'id' => $request['variables']['filter']['id']['in'][0], 'trashed' => true],
+        ]]],
+    ]);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-list')
+        ->call('createLinearIssue', $ticket->id)
+        ->assertDispatched('toast-show', fn (string $name, array $params) => $params['dataset']['variant'] === 'danger');
+
+    expect($ticket->linearLinks()->exists())->toBeFalse()
+        ->and(Cache::has("linear-issue-create:{$ticket->id}:issue-id"))->toBeFalse();
+
+    Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+
+    [$first, $retry] = linearRequests('CreateIssue');
+
+    expect($retry['variables']['input']['id'])->not->toBe($first['variables']['input']['id'])
+        ->and($ticket->linearLinks()->sole()->identifier)->toBe('GES-951');
+});
+
+test('a failed creation with no issue in linear keeps the id for the retry', function () {
+    fakeLinearOperations(['CreateIssue' => Http::response('Gateway timeout', 504)]);
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+
+    expect(Cache::get("linear-issue-create:{$ticket->id}:issue-id"))->toBe(linearRequests('CreateIssue')[0]['variables']['input']['id']);
+});
+
 test('the issue id kept for retries is forgotten once the issue is linked', function () {
     fakeLinearOperations();
     $ticket = Ticket::factory()->create(['status' => 'open']);
@@ -281,7 +323,8 @@ test('an admin can create at most five linear issues a minute', function () {
 
     Livewire::test('tickets.ticket-list')
         ->call('createLinearIssue', $tickets->last()->id)
-        ->assertDispatched('toast-show', fn (string $name, array $params) => $params['dataset']['variant'] === 'danger');
+        ->assertDispatched('toast-show', fn (string $name, array $params) => $params['dataset']['variant'] === 'danger'
+            && $params['slots']['text'] === __('Creaste varios issues seguidos. Probá de nuevo en un minuto.'));
 
     expect(Http::recorded())->toHaveCount($sentBefore)
         ->and(linearRequests('CreateIssue'))->toHaveCount(5)

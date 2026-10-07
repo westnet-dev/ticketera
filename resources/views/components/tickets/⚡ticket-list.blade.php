@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Linear\LinearClient;
 use App\Services\Linear\LinearUnavailableException;
 use App\Services\Linear\TicketIssueCreator;
+use App\Services\Linear\TooManyLinearIssuesException;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -89,6 +90,10 @@ new class extends Component
 
         try {
             $link = $creator->create($ticket, auth()->user());
+        } catch (TooManyLinearIssuesException) {
+            Flux::toast(variant: 'danger', text: __('Creaste varios issues seguidos. Probá de nuevo en un minuto.'));
+
+            return;
         } catch (LinearUnavailableException) {
             Flux::toast(variant: 'danger', text: __('No se pudo crear el issue en Linear. Probá de nuevo en unos minutos.'));
 
