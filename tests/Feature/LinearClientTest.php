@@ -82,6 +82,28 @@ test('it leaves out issues deleted in linear, which stay in the trash as archive
         ->and(array_column($linear->issuesAttachedToUrl('https://tickets.example.com/tickets/7'), 'identifier'))->toBe(['GES-911']);
 });
 
+test('issue lookups read the urls each issue attaches', function () {
+    fakeLinear(issueNodes: [[...linearIssueNode(), 'attachments' => ['nodes' => [
+        ['url' => 'https://tickets.example.com/tickets/7'],
+        ['url' => null],
+    ]]]]);
+
+    $issues = app(LinearClient::class)->findByIds(['uuid-ges-911']);
+
+    expect($issues[0]->attachmentUrls)->toBe(['https://tickets.example.com/tickets/7'])
+        ->and(LinearIssue::fromNode(linearIssueNode())->attachmentUrls)->toBe([]);
+
+    Http::assertSent(fn (Request $request) => str_contains($request['query'], 'attachments { nodes { url } }'));
+});
+
+test('an issue attaches a ticket path whatever the scheme, host or trailing slash of the url', function () {
+    $issue = LinearIssue::fromNode([...linearIssueNode(), 'attachments' => ['nodes' => [['url' => 'http://old.example.com/tickets/7/']]]]);
+
+    expect($issue->attachesPath('/tickets/7'))->toBeTrue()
+        ->and($issue->attachesPath('/tickets/17'))->toBeFalse()
+        ->and($issue->attachesPath('/tickets/77'))->toBeFalse();
+});
+
 test('fetching no ids sends no request', function () {
     expect(app(LinearClient::class)->findByIds([]))->toBe([]);
 

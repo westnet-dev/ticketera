@@ -7,6 +7,9 @@ namespace App\Services\Linear;
  */
 final readonly class LinearIssue
 {
+    /**
+     * @param  list<string>  $attachmentUrls  The URLs the issue attaches, only present on issue lookups.
+     */
     public function __construct(
         public string $id,
         public string $identifier,
@@ -15,6 +18,7 @@ final readonly class LinearIssue
         public string $stateName,
         public string $stateType,
         public ?string $assigneeName,
+        public array $attachmentUrls = [],
     ) {}
 
     /**
@@ -36,7 +40,25 @@ final readonly class LinearIssue
             stateName: (string) data_get($node, 'state.name'),
             stateType: (string) data_get($node, 'state.type'),
             assigneeName: is_string($assigneeName) ? $assigneeName : null,
+            attachmentUrls: array_values(array_filter((array) data_get($node, 'attachments.nodes.*.url', []), 'is_string')),
         );
+    }
+
+    /**
+     * Whether one of the issue's attachments points to the given path, whatever its scheme and host,
+     * so a link survives an APP_URL change while Linear still holds the old URL.
+     */
+    public function attachesPath(string $path): bool
+    {
+        $path = rtrim($path, '/');
+
+        foreach ($this->attachmentUrls as $url) {
+            if (str_ends_with(rtrim((string) parse_url($url, PHP_URL_PATH), '/'), $path)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

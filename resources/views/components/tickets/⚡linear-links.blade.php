@@ -2,9 +2,12 @@
 
 use App\Enums\LinearLinkSource;
 use App\Models\Ticket;
+use App\Models\TicketLinearLink;
 use App\Services\Linear\LinearClient;
 use App\Services\Linear\LinearIssue;
 use App\Services\Linear\LinearUnavailableException;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -143,11 +146,7 @@ new class extends Component
                 $this->ticket->linkLinearIssue($issue, LinearLinkSource::Attachment);
             }
 
-            // The attachment was removed in Linear, or its issue deleted.
-            $this->ticket->linearLinks()
-                ->where('source', LinearLinkSource::Attachment)
-                ->whereNotIn('linear_issue_id', array_column($attached, 'id'))
-                ->delete();
+            $this->removeDetachedLinks($links, $issues, array_column($attached, 'id'));
 
             $this->linearUnavailable = false;
         } catch (LinearUnavailableException) {
@@ -156,6 +155,28 @@ new class extends Component
             // Retry soon instead of waiting out the interval, without calling Linear on every view.
             Cache::put($this->syncCacheKey(), true, now()->addMinute());
         }
+    }
+
+    /**
+     * Delete the detected links whose issue was deleted in Linear or no longer attaches this ticket.
+     * The attachment is matched by path, not by canonicalUrl(): after an APP_URL change Linear
+     * still holds the old URL, and matching the new one would drop every detected link.
+     *
+     * @param  Collection<int, TicketLinearLink>  $links
+     * @param  BaseCollection<string, LinearIssue>  $issues
+     * @param  list<string>  $attachedIds
+     */
+    private function removeDetachedLinks(Collection $links, BaseCollection $issues, array $attachedIds): void
+    {
+        $ticketPath = route('ticket.show', $this->ticket, absolute: false);
+
+        $detachedIds = $links
+            ->filter(fn (TicketLinearLink $link) => $link->wasDetectedFromLinear())
+            ->reject(fn (TicketLinearLink $link) => in_array($link->linear_issue_id, $attachedIds, true)
+                || $issues->get($link->linear_issue_id)?->attachesPath($ticketPath))
+            ->modelKeys();
+
+        $this->ticket->linearLinks()->whereKey($detachedIds)->delete();
     }
 
     private function throttled(): bool

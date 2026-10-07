@@ -46,7 +46,7 @@ class LinearClient
     }
 
     /**
-     * Fetch the current state of several issues by their Linear ids.
+     * Fetch the current state of several issues by their Linear ids, with the URLs they attach.
      *
      * @param  list<string>  $ids
      * @return list<LinearIssue>
@@ -84,7 +84,7 @@ class LinearClient
     private function issues(array $filter, int $first): array
     {
         $data = $this->query(
-            'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first, includeArchived: true) { nodes { '.self::ISSUE_FIELDS.' } } }',
+            'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first, includeArchived: true) { nodes { '.self::ISSUE_FIELDS.' attachments { nodes { url } } } } }',
             ['filter' => $filter, 'first' => $first],
         );
 

@@ -247,6 +247,35 @@ test('a detected link goes away once linear no longer attaches the ticket url, a
     expect($ticket->linearLinks()->pluck('id')->all())->toBe([$manual->id]);
 });
 
+test('a detected link stays after APP_URL changes while its issue still attaches the old ticket url', function () {
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    $link = TicketLinearLink::factory()->detected()->for($ticket)->create(['linear_issue_id' => 'uuid-ges-120']);
+    fakeLinear(issueNodes: [[...linearIssueNode('GES-120'), 'attachments' => ['nodes' => [['url' => "http://old-tickets.example.com/tickets/{$ticket->id}/"]]]]]);
+    config(['app.url' => 'https://tickets.example.com']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
+    expect($link->fresh())->not->toBeNull();
+});
+
+test('a detected link goes away when its issue only attaches other tickets or was deleted in linear', function (?array $attachedPaths) {
+    $ticket = Ticket::factory()->create(['status' => 'open']);
+    TicketLinearLink::factory()->detected()->for($ticket)->create(['linear_issue_id' => 'uuid-ges-120']);
+    $urls = array_map(fn (string $path) => ['url' => 'https://tickets.example.com'.str_replace('{id}', (string) $ticket->id, $path)], $attachedPaths ?? []);
+    fakeLinear(issueNodes: $attachedPaths === null ? [] : [[...linearIssueNode('GES-120'), 'attachments' => ['nodes' => $urls]]]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $ticket]);
+
+    expect($ticket->linearLinks()->exists())->toBeFalse();
+})->with([
+    'other tickets attached' => [['/tickets/{id}0', '/tickets/{id}/edit']],
+    'issue deleted' => [null],
+]);
+
 test('an admin cannot remove a link of another ticket', function () {
     fakeLinear();
     $ticket = Ticket::factory()->create(['status' => 'open']);
