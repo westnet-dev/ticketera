@@ -265,6 +265,64 @@ test('a second creation while one is in progress creates no issue', function () 
     Http::assertNothingSent();
 });
 
+test('an admin can create at most five linear issues a minute', function () {
+    fakeLinearOperations();
+    $tickets = Ticket::factory()->count(6)->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    foreach ($tickets->take(5) as $ticket) {
+        Livewire::test('tickets.ticket-list')
+            ->call('createLinearIssue', $ticket->id)
+            ->assertDispatched('toast-show', fn (string $name, array $params) => $params['dataset']['variant'] === 'success');
+    }
+
+    $sentBefore = Http::recorded()->count();
+
+    Livewire::test('tickets.ticket-list')
+        ->call('createLinearIssue', $tickets->last()->id)
+        ->assertDispatched('toast-show', fn (string $name, array $params) => $params['dataset']['variant'] === 'danger');
+
+    expect(Http::recorded())->toHaveCount($sentBefore)
+        ->and(linearRequests('CreateIssue'))->toHaveCount(5)
+        ->and($tickets->last()->linearLinks()->exists())->toBeFalse();
+});
+
+test('one admin reaching the creation limit does not limit another admin', function () {
+    fakeLinearOperations();
+    $tickets = Ticket::factory()->count(6)->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    foreach ($tickets->take(5) as $ticket) {
+        Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+    }
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.linear-links', ['ticket' => $tickets->last()])->call('createIssue');
+
+    expect($tickets->last()->linearLinks()->exists())->toBeTrue();
+});
+
+test('a click on an already linked ticket does not count against the creation limit', function () {
+    fakeLinearOperations();
+    $linked = Ticket::factory()->create(['status' => 'open']);
+    TicketLinearLink::factory()->for($linked)->create(['identifier' => 'GES-911']);
+    $tickets = Ticket::factory()->count(5)->create(['status' => 'open']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-list')->call('createLinearIssue', $linked->id);
+
+    foreach ($tickets as $ticket) {
+        Livewire::test('tickets.ticket-list')->call('createLinearIssue', $ticket->id);
+    }
+
+    expect(linearRequests('CreateIssue'))->toHaveCount(5)
+        ->and($tickets->last()->linearLinks()->exists())->toBeTrue();
+});
+
 test('only admins can create a linear issue, and only for a ticket that passed triage', function () {
     $admin = User::factory()->admin()->create();
     $client = User::factory()->create();

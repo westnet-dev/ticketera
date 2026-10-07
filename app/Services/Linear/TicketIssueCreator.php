@@ -9,6 +9,7 @@ use App\Models\TicketLinearLink;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 /**
@@ -16,6 +17,11 @@ use Illuminate\Support\Str;
  */
 class TicketIssueCreator
 {
+    /**
+     * Each creation costs up to 4 calls against the Linear key's shared hourly budget.
+     */
+    private const CREATIONS_PER_MINUTE = 5;
+
     public function __construct(private LinearClient $linear) {}
 
     /**
@@ -42,6 +48,14 @@ class TicketIssueCreator
      */
     private function createAndLink(Ticket $ticket, User $creator): TicketLinearLink
     {
+        $key = "linear-issues:create:{$creator->id}";
+
+        if (RateLimiter::tooManyAttempts($key, self::CREATIONS_PER_MINUTE)) {
+            throw new LinearUnavailableException('Too many Linear issues created in the last minute.');
+        }
+
+        RateLimiter::hit($key);
+
         // A retry reuses the id, so an issue created behind a timeout fails as a duplicate and is found below.
         $idKey = "linear-issue-create:{$ticket->id}:issue-id";
         $id = Cache::remember($idKey, now()->addDay(), fn () => (string) Str::uuid());
