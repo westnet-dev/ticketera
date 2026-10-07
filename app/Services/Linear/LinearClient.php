@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 /**
- * Read-only access to Linear's GraphQL API with a personal API key.
+ * Access to Linear's GraphQL API with a personal API key: reads, plus creating issues
+ * for tickets when a team is configured.
  *
  * Lookups go through the issues() connection instead of issue(id:): a missing issue there
  * comes back as an empty list, not as an error that would have to be told apart from an outage.
@@ -23,11 +24,87 @@ class LinearClient
     public function __construct(
         #[Config('services.linear.key')] private ?string $apiKey,
         #[Config('services.linear.url')] private string $url,
+        #[Config('services.linear.team_id')] private ?string $teamId = null,
     ) {}
 
     public function isConfigured(): bool
     {
         return filled($this->apiKey);
+    }
+
+    public function canCreateIssues(): bool
+    {
+        return $this->isConfigured() && filled($this->teamId);
+    }
+
+    /**
+     * Create an issue in the configured team.
+     *
+     * The caller picks the issue id, so after a timeout it can look the issue up instead of creating it twice.
+     *
+     * @param  int  $priority  Linear's scale: 1 urgent to 4 low.
+     *
+     * @throws LinearUnavailableException
+     */
+    public function createIssue(string $id, string $title, string $description, int $priority, ?string $assigneeId): LinearIssue
+    {
+        if (! $this->canCreateIssues()) {
+            throw new LinearUnavailableException('No Linear team is configured to create issues in.');
+        }
+
+        $data = $this->query(
+            'mutation CreateIssue($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { '.self::ISSUE_FIELDS.' } } }',
+            ['input' => [
+                'id' => $id,
+                'teamId' => $this->teamId,
+                'title' => $title,
+                'description' => $description,
+                'priority' => $priority,
+                'assigneeId' => $assigneeId,
+            ]],
+        );
+
+        $node = data_get($data, 'issueCreate.issue');
+
+        if (data_get($data, 'issueCreate.success') !== true || ! is_array($node)) {
+            throw new LinearUnavailableException('Linear did not create the issue.');
+        }
+
+        return LinearIssue::fromNode($node);
+    }
+
+    /**
+     * Attach a link to the issue, the same as pasting it with Ctrl+L in Linear.
+     *
+     * @throws LinearUnavailableException
+     */
+    public function attachUrl(string $issueId, string $url, string $title): void
+    {
+        $data = $this->query(
+            'mutation AttachUrl($issueId: String!, $url: String!, $title: String) { attachmentLinkURL(issueId: $issueId, url: $url, title: $title) { success } }',
+            ['issueId' => $issueId, 'url' => $url, 'title' => $title],
+        );
+
+        if (data_get($data, 'attachmentLinkURL.success') !== true) {
+            throw new LinearUnavailableException('Linear did not attach the URL.');
+        }
+    }
+
+    /**
+     * The id of the active Linear user with this email, if there is one.
+     *
+     * @throws LinearUnavailableException
+     */
+    public function findUserIdByEmail(string $email): ?string
+    {
+        $data = $this->query(
+            'query UserByEmail($email: String!) { users(filter: { email: { eqIgnoreCase: $email }, active: { eq: true } }, first: 1) { nodes { id } } }',
+            ['email' => $email],
+        );
+
+        $id = data_get($data, 'users.nodes.0.id');
+
+        return is_string($id) ? $id : null;
     }
 
     /**
@@ -49,13 +126,14 @@ class LinearClient
      * Fetch the current state of several issues by their Linear ids, with the URLs they attach.
      *
      * @param  list<string>  $ids
+     * @param  bool  $withTrashed  Also return issues deleted in Linear, flagged as trashed.
      * @return list<LinearIssue>
      *
      * @throws LinearUnavailableException
      */
-    public function findByIds(array $ids): array
+    public function findByIds(array $ids, bool $withTrashed = false): array
     {
-        return $ids === [] ? [] : $this->issues(['id' => ['in' => $ids]], count($ids), 'attachments { nodes { url } }');
+        return $ids === [] ? [] : $this->issues(['id' => ['in' => $ids]], count($ids), 'attachments { nodes { url } }', $withTrashed);
     }
 
     /**
@@ -82,26 +160,26 @@ class LinearClient
      *
      * @throws LinearUnavailableException
      */
-    private function issues(array $filter, int $first, string $extraFields = ''): array
+    private function issues(array $filter, int $first, string $extraFields = '', bool $withTrashed = false): array
     {
         $data = $this->query(
             'query Issues($filter: IssueFilter, $first: Int) { issues(filter: $filter, first: $first, includeArchived: true) { nodes { '.self::ISSUE_FIELDS.' '.$extraFields.' } } }',
             ['filter' => $filter, 'first' => $first],
         );
 
-        return $this->toIssues((array) data_get($data, 'issues.nodes', []));
+        return $this->toIssues((array) data_get($data, 'issues.nodes', []), $withTrashed);
     }
 
     /**
      * @param  array<array-key, mixed>  $nodes
      * @return list<LinearIssue>
      */
-    private function toIssues(array $nodes): array
+    private function toIssues(array $nodes, bool $withTrashed = false): array
     {
         $issues = [];
 
         foreach ($nodes as $node) {
-            if (is_array($node) && ($node['trashed'] ?? false) !== true) {
+            if (is_array($node) && ($withTrashed || ($node['trashed'] ?? false) !== true)) {
                 $issue = LinearIssue::fromNode($node);
                 $issues[$issue->id] = $issue;
             }

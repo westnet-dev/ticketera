@@ -5,8 +5,14 @@ use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\TicketSetting;
 use App\Models\User;
+use App\Services\Linear\LinearClient;
+use App\Services\Linear\LinearUnavailableException;
+use App\Services\Linear\TicketIssueCreator;
+use App\Services\Linear\TooManyLinearIssuesException;
+use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -76,6 +82,29 @@ new class extends Component
         $this->resetPage();
     }
 
+    public function createLinearIssue(int $ticketId, TicketIssueCreator $creator): void
+    {
+        $ticket = Ticket::findOrFail($ticketId);
+
+        Gate::authorize('createLinearIssue', $ticket);
+
+        try {
+            $link = $creator->create($ticket, auth()->user());
+        } catch (TooManyLinearIssuesException) {
+            Flux::toast(variant: 'danger', text: __('Creaste varios issues seguidos. Probá de nuevo en un minuto.'));
+
+            return;
+        } catch (LinearUnavailableException) {
+            Flux::toast(variant: 'danger', text: __('No se pudo crear el issue en Linear. Probá de nuevo en unos minutos.'));
+
+            return;
+        }
+
+        Flux::toast(variant: 'success', text: $link->wasRecentlyCreated
+            ? __('Se creó :identifier en Linear.', ['identifier' => $link->identifier])
+            : __('El ticket ya estaba vinculado a :identifier.', ['identifier' => $link->identifier]));
+    }
+
     public function with(): array
     {
         $user = auth()->user();
@@ -96,7 +125,7 @@ new class extends Component
 
         $query = $this->tabQuery($user, $areas, $this->area)
             ->with(['user', 'assignedTo', 'category'])
-            ->when($user->isAdmin(), fn (Builder $query) => $query->withExists([
+            ->when($user->isAdmin(), fn (Builder $query) => $query->with('linearLinks')->withExists([
                 'collaborators as is_collaborator' => fn (Builder $query) => $query->whereKey($user->id),
             ]))
             ->search($this->search);
@@ -119,6 +148,8 @@ new class extends Component
             'quota' => $this->quota($user, $areas, $activeArea),
             // Admins never validate, so the prompt is only for the requesting side.
             'canValidateListed' => $selectedStatuses === ['pending_validation'] && ! $user->isAdmin(),
+            'isAdmin' => $user->isAdmin(),
+            'canCreateLinearIssues' => $user->isAdmin() && app(LinearClient::class)->canCreateIssues(),
         ];
     }
 
@@ -322,9 +353,29 @@ new class extends Component
                         <flux:table.row :key="$ticket->id">
                             <flux:table.cell class="text-xs text-neutral-400">#TK-{{ $ticket->id }}</flux:table.cell>
                             <flux:table.cell class="whitespace-normal">
-                                <x-tickets.subject-cell :ticket="$ticket" :show-assignee="auth()->user()->isAdmin()">
+                                <x-tickets.subject-cell :ticket="$ticket" :show-assignee="$isAdmin">
                                     @if ($ticket->is_collaborator)
                                         <flux:badge size="sm" color="sky">{{ __('Colaborador') }}</flux:badge>
+                                    @endif
+                                    @if ($isAdmin)
+                                        @foreach ($ticket->linearLinks as $link)
+                                            <flux:badge size="sm" :color="$link->stateColor()" :title="$link->title">
+                                                {{ $link->identifier }} · {{ $link->state_name }}
+                                            </flux:badge>
+                                        @endforeach
+                                        @if ($canCreateLinearIssues && $ticket->linearLinks->isEmpty())
+                                            @can('createLinearIssue', $ticket)
+                                                <flux:button
+                                                    size="xs"
+                                                    variant="ghost"
+                                                    icon="linear"
+                                                    wire:click="createLinearIssue({{ $ticket->id }})"
+                                                    wire:confirm="{{ __('¿Crear un issue en Linear para TK-:id?', ['id' => $ticket->id]) }}"
+                                                    :tooltip="__('Crear issue en Linear')"
+                                                    :aria-label="__('Crear issue en Linear para TK-:id', ['id' => $ticket->id])"
+                                                />
+                                            @endcan
+                                        @endif
                                     @endif
                                 </x-tickets.subject-cell>
                             </flux:table.cell>
