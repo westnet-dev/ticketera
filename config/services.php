@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'linear' => [
+        'key' => env('LINEAR_API_KEY'),
+        'url' => env('LINEAR_API_URL', 'https://api.linear.app/graphql'),
+        // The team that issues created from a ticket go to; without it the ticketera only reads from Linear.
+        'team_id' => env('LINEAR_TEAM_ID'),
+    ],
+
 ];

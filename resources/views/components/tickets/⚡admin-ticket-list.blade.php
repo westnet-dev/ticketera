@@ -100,7 +100,7 @@ new class extends Component
         $query = Ticket::query()
             ->approved()
             ->where('tickets.status', '!=', 'draft')
-            ->with(['user', 'assignedTo', 'category']);
+            ->with(['user', 'assignedTo', 'category', 'linearLinks']);
 
         $this->applyStatusFilter($query, auth()->user(), $selectedStatuses);
 
@@ -202,7 +202,13 @@ new class extends Component
                         <flux:table.row :key="$ticket->id">
                             <flux:table.cell class="text-xs text-neutral-400">#TK-{{ $ticket->id }}</flux:table.cell>
                             <flux:table.cell class="whitespace-normal">
-                                <x-tickets.subject-cell :ticket="$ticket" />
+                                <x-tickets.subject-cell :ticket="$ticket">
+                                    @foreach ($ticket->linearLinks as $link)
+                                        <flux:badge size="sm" :color="$link->stateColor()" :title="$link->title">
+                                            {{ $link->identifier }} · {{ $link->state_name }}
+                                        </flux:badge>
+                                    @endforeach
+                                </x-tickets.subject-cell>
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:badge size="sm" :color="$ticket->statusColor()">

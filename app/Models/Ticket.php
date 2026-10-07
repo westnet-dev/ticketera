@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Casts\SanitizedHtml;
 use App\Enums\Difficulty;
 use App\Enums\Level;
+use App\Enums\LinearLinkSource;
 use App\Enums\TicketPriority;
 use App\Enums\TriageStatus;
 use App\Enums\ValidationStatus;
+use App\Services\Linear\LinearIssue;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -230,6 +232,43 @@ class Ticket extends Model
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    /**
+     * @return HasMany<TicketLinearLink, $this>
+     */
+    public function linearLinks(): HasMany
+    {
+        return $this->hasMany(TicketLinearLink::class)->orderBy('created_at');
+    }
+
+    /**
+     * Link a Linear issue to this ticket, or refresh the cached fields of an existing link.
+     *
+     * An existing link keeps its original source and author.
+     */
+    public function linkLinearIssue(LinearIssue $issue, LinearLinkSource $source, ?int $linkedBy = null): TicketLinearLink
+    {
+        $link = $this->linearLinks()->createOrFirst(
+            ['linear_issue_id' => $issue->id],
+            [...$issue->toLinkAttributes(), 'synced_at' => now(), 'source' => $source, 'linked_by' => $linkedBy],
+        );
+
+        if (! $link->wasRecentlyCreated) {
+            $link->refreshFrom($issue);
+        }
+
+        return $link;
+    }
+
+    /**
+     * The ticket's URL built from APP_URL, so it is the same whichever host the page was opened on.
+     *
+     * Linear issues reference a ticket by attaching exactly this URL.
+     */
+    public function canonicalUrl(): string
+    {
+        return rtrim((string) config('app.url'), '/').route('ticket.show', $this, absolute: false);
     }
 
     /**

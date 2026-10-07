@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Services\Linear\LinearClient;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -42,7 +43,7 @@ class TicketController extends Controller
         return redirect()->route('ticket.index', ['statuses' => ['pending_validation']]);
     }
 
-    public function show(Ticket $ticket): View
+    public function show(Ticket $ticket, LinearClient $linear): View
     {
         if ($ticket->isDraft()) {
             Gate::authorize('update', $ticket);
@@ -54,6 +55,9 @@ class TicketController extends Controller
 
         $ticket->loadMissing(['user', 'createdBy', 'category', 'area', 'assignedTo']);
 
-        return view('tickets.show', ['ticket' => $ticket]);
+        return view('tickets.show', [
+            'ticket' => $ticket,
+            'linearEnabled' => $linear->isConfigured(),
+        ]);
     }
 }

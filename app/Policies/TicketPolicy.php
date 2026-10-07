@@ -136,6 +136,26 @@ class TicketPolicy
     }
 
     /**
+     * Determine whether the user can see and manage the ticket's links to Linear issues.
+     *
+     * Linear holds the team's internal work, so clients never see it.
+     */
+    public function manageLinearLinks(User $user, Ticket $ticket): bool
+    {
+        return $user->isAdmin() && ! $ticket->isDraft();
+    }
+
+    /**
+     * Determine whether the user can create a Linear issue for the ticket.
+     *
+     * Only once triage approved it: before that the ticket may still be rejected.
+     */
+    public function createLinearIssue(User $user, Ticket $ticket): bool
+    {
+        return $this->manageLinearLinks($user, $ticket) && $ticket->isTriageApproved();
+    }
+
+    /**
      * Determine whether the user can update the model.
      */
     public function update(User $user, Ticket $ticket): bool
