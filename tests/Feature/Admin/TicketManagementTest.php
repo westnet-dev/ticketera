@@ -119,6 +119,45 @@ test('awaiting response has its own label and color', function () {
         ->and($otherColors)->not->toContain(Ticket::colorForStatus('awaiting_response'));
 });
 
+test('pending deploy has its own label and color', function () {
+    $otherColors = collect(array_diff(Ticket::STATUSES, ['pending_deploy']))
+        ->map(fn (string $status): string => Ticket::colorForStatus($status));
+
+    expect(Ticket::labelForStatus('pending_deploy'))->toBe('Pendiente de subir a producción')
+        ->and($otherColors)->not->toContain(Ticket::colorForStatus('pending_deploy'));
+});
+
+test('an admin marks a ticket as pending deploy and the history records it', function () {
+    $admin = User::factory()->admin()->create();
+    $ticket = Ticket::factory()->create(['status' => 'in_progress']);
+
+    $this->actingAs($admin);
+
+    Livewire::test('tickets.ticket-status-selector', ['ticket' => $ticket])
+        ->assertSee('Pendiente de subir a producción')
+        ->call('updateStatus', 'pending_deploy');
+
+    $entry = $ticket->history()->where('field', 'status')->latest('id')->first();
+
+    expect($ticket->refresh()->isPendingDeploy())->toBeTrue()
+        ->and($entry->from_value)->toBe('in_progress')
+        ->and($entry->to_value)->toBe('pending_deploy')
+        ->and($entry->user_id)->toBe($admin->id);
+});
+
+test('a client cannot mark their own ticket as pending deploy', function () {
+    $client = User::factory()->create();
+    $ticket = Ticket::factory()->create(['status' => 'in_progress', 'user_id' => $client->id]);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.ticket-status-selector', ['ticket' => $ticket])
+        ->call('updateStatus', 'pending_deploy')
+        ->assertForbidden();
+
+    expect($ticket->refresh()->status)->toBe('in_progress');
+});
+
 test('a guest cannot change a ticket status', function () {
     $ticket = Ticket::factory()->create(['status' => 'open']);
 

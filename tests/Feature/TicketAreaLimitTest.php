@@ -131,6 +131,20 @@ test('resolving a teammate ticket frees room for the whole area', function () {
     expect(Ticket::where('user_id', $client->id)->count())->toBe(1);
 });
 
+test('tickets pending deploy still count toward the area cap', function () {
+    $area = Area::factory()->create();
+    fillAreaToCap($area, 'pending_deploy');
+
+    $client = User::factory()->withAreas($area)->create();
+
+    $this->actingAs($client);
+
+    attemptTicket('Pedido con el área llena', 'Mi área tiene todo pendiente de subir a producción.', $area)
+        ->assertHasErrors(['title']);
+
+    expect(Ticket::where('user_id', $client->id)->exists())->toBeFalse();
+});
+
 test('draft tickets of the area do not count toward the cap', function () {
     $area = Area::factory()->create();
     fillAreaToCap($area, 'draft');

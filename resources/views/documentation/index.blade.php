@@ -24,6 +24,7 @@
         'in_progress' => __('Un integrante del equipo está trabajando en tu pedido.'),
         'paused' => __('El trabajo se detuvo momentáneamente por algo ajeno a vos, por ejemplo mientras se espera a un tercero o a otro equipo.'),
         'awaiting_response' => __('El equipo necesita algo de vos para seguir (un dato, una confirmación, una captura). Respondé en el chat del ticket y vuelve a En Progreso automáticamente.'),
+        'pending_deploy' => __('El trabajo ya está hecho y probado, pero todavía falta subirlo a producción para que lo veas funcionando. Todavía no te pide validación.'),
         'resolved' => __('El equipo considera que el pedido está resuelto y te pide que lo valides.'),
         'cancelled' => __('El pedido se cerró sin resolverse (duplicado, ya no hace falta, fuera de alcance, etc.).'),
     ];
@@ -59,7 +60,8 @@
                             [__('Lo creás'), __('Completás el formulario. Podés guardarlo como borrador y enviarlo más tarde.')],
                             [__('Revisión inicial'), __('Un administrador revisa que el pedido esté claro y completo. Si lo aprueba, entra a la cola de trabajo; si lo rechaza, te explica el motivo en el chat para que lo corrijas.')],
                             [__('Se asigna y se trabaja'), __('Alguien del equipo lo toma y el ticket pasa a En Progreso. Si el equipo necesita algo de vos pasa a Esperando respuesta hasta que contestes en el chat; si se espera a un tercero, se pausa.')],
-                            [__('Se marca como resuelto'), __('Cuando el equipo termina, lo marca como Resuelto y te pide que valides el resultado.')],
+                            [__('Se sube a producción'), __('Cuando el trabajo está terminado pero falta el último paso para que lo veas, el ticket pasa a Pendiente de subir a producción.')],
+                            [__('Se marca como resuelto'), __('Cuando el cambio ya está disponible, el equipo lo marca como Resuelto y te pide que valides el resultado.')],
                             [__('Lo validás'), __('Confirmás que quedó resuelto y calificás la solución, o indicás qué faltó y el ticket vuelve a En Progreso.')],
                         ] as $index => [$title, $body])
                             <li class="flex gap-3">
@@ -253,7 +255,7 @@
                         {{ __('Para que el equipo pueda atender todos los pedidos, hay un máximo de :max tickets sin cerrar a la vez. El límite se comparte entre todos los tickets de un mismo área. Si pertenecés a más de un área, al crear un ticket elegís para cuál es y cuenta para esa; si no tenés área asignada, se cuenta sobre tus propios tickets.', ['max' => $maxOpenTickets]) }}
                     </flux:text>
                     <flux:text>
-                        {{ __('Cuentan los tickets Abiertos, En Progreso, Pausados, Esperando respuesta y los que esperan revisión inicial. Los borradores, resueltos y cancelados no cuentan.') }}
+                        {{ __('Cuentan los tickets Abiertos, En Progreso, Pausados, Esperando respuesta, Pendientes de subir a producción y los que esperan revisión inicial. Los borradores, resueltos y cancelados no cuentan.') }}
                     </flux:text>
 
                     @unless (auth()->user()->isAdmin())
@@ -286,7 +288,7 @@
                     <flux:text>{{ __('Cada pestaña de área muestra cuántos cupos le quedan antes de llegar al límite de tickets sin cerrar. Podés buscar por título o número de ticket (por ejemplo #TK-123) y filtrar por estado:') }}</flux:text>
                     <dl class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                         @foreach ([
-                            [__('En curso'), __('Tickets Abiertos, En Progreso, Pausados o Esperando respuesta.')],
+                            [__('En curso'), __('Tickets Abiertos, En Progreso, Pausados, Esperando respuesta o Pendientes de subir a producción.')],
                             [__('Por validar'), __('Tickets resueltos que esperan la confirmación de su autor.')],
                             [__('Finalizados'), __('Tickets Resueltos o Cancelados.')],
                             [__('Borradores'), __('Pedidos que guardaste sin enviar. Solo ves los tuyos.')],

@@ -126,7 +126,7 @@ test('the status filter narrows the active tab', function (string $status, array
     $area = Area::factory()->create();
     $client = User::factory()->withAreas($area)->create();
 
-    foreach (['open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled'] as $ticketStatus) {
+    foreach (['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled'] as $ticketStatus) {
         Ticket::factory()->create(['area_id' => $area->id, 'status' => $ticketStatus]);
     }
 
@@ -136,10 +136,10 @@ test('the status filter narrows the active tab', function (string $status, array
         ->set('status', $status)
         ->assertViewHas('tickets', fn ($tickets) => $tickets->pluck('status')->sort()->values()->all() === collect($expectedStatuses)->sort()->values()->all());
 })->with([
-    'en curso' => ['ongoing', ['open', 'in_progress', 'paused', 'awaiting_response']],
+    'en curso' => ['ongoing', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']],
     'finalizados' => ['finished', ['resolved', 'cancelled']],
-    'todos' => ['all', ['open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled']],
-    'valor inválido' => ['bogus', ['open', 'in_progress', 'paused', 'awaiting_response']],
+    'todos' => ['all', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled']],
+    'valor inválido' => ['bogus', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']],
 ]);
 
 test('"Por validar" lists the area\'s tickets awaiting validation from any author', function () {
@@ -328,4 +328,17 @@ test('the client dashboard counts the area tickets the user can validate', funct
 
     Livewire::test('dashboard')
         ->assertViewHas('pendingValidationCount', 2);
+});
+
+test('a ticket pending deploy counts in the ongoing tab count', function () {
+    $area = Area::factory()->create();
+    $client = User::factory()->withAreas($area)->create();
+    Ticket::factory()->pendingDeploy()->create(['area_id' => $area->id]);
+    Ticket::factory()->create(['area_id' => $area->id, 'status' => 'open']);
+
+    $this->actingAs($client);
+
+    Livewire::test('tickets.ticket-list')
+        ->assertViewHas('tabs', fn ($tabs) => $tabs[$area->id]['count'] === 2)
+        ->assertSee('Pendiente de subir a producción');
 });

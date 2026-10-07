@@ -229,13 +229,14 @@ test('sorting by status follows the ticket flow, not the alphabet', function () 
     $inProgress = Ticket::factory()->create(['status' => 'in_progress']);
     $paused = Ticket::factory()->create(['status' => 'paused']);
     $awaitingResponse = Ticket::factory()->awaitingResponse()->create();
+    $pendingDeploy = Ticket::factory()->pendingDeploy()->create();
     $cancelled = Ticket::factory()->create(['status' => 'cancelled']);
 
     $ids = listedTicketIds(
         Livewire::test('tickets.admin-ticket-list')->call('sort', 'status')
     );
 
-    expect($ids)->toBe([$open->id, $inProgress->id, $paused->id, $awaitingResponse->id, $cancelled->id]);
+    expect($ids)->toBe([$open->id, $inProgress->id, $paused->id, $awaitingResponse->id, $pendingDeploy->id, $cancelled->id]);
 });
 
 test('sorting by difficulty keeps unestimated tickets last in both directions', function () {

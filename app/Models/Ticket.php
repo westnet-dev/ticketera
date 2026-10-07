@@ -51,7 +51,7 @@ class Ticket extends Model
     /**
      * @var array<int, string>
      */
-    public const STATUSES = ['draft', 'open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled'];
+    public const STATUSES = ['draft', 'open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled'];
 
     /**
      * The order statuses are presented in when a listing is sorted by status.
@@ -63,7 +63,7 @@ class Ticket extends Model
      *
      * @var array<int, string>
      */
-    public const STATUS_FLOW = ['open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled', 'draft'];
+    public const STATUS_FLOW = ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled', 'draft'];
 
     /**
      * @return array<string, string>
@@ -178,7 +178,7 @@ class Ticket extends Model
      */
     protected function scopeOngoing($query): void
     {
-        $query->whereIn('status', ['open', 'in_progress', 'paused', 'awaiting_response']);
+        $query->whereIn('status', ['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy']);
     }
 
     protected function scopeOpen($query): void
@@ -204,6 +204,14 @@ class Ticket extends Model
     protected function scopeAwaitingResponse($query): void
     {
         $query->where('status', 'awaiting_response');
+    }
+
+    /**
+     * Tickets whose work is done but not yet visible to end users.
+     */
+    protected function scopePendingDeploy($query): void
+    {
+        $query->where('status', 'pending_deploy');
     }
 
     protected function scopeCancelled($query): void
@@ -400,6 +408,7 @@ class Ticket extends Model
             'in_progress' => 'yellow',
             'paused' => 'orange',
             'awaiting_response' => 'purple',
+            'pending_deploy' => 'cyan',
             'resolved' => 'blue',
             'cancelled' => 'red',
             default => 'zinc',
@@ -419,6 +428,7 @@ class Ticket extends Model
             'in_progress' => __('En Progreso'),
             'paused' => __('Pausado'),
             'awaiting_response' => __('Esperando respuesta'),
+            'pending_deploy' => __('Pendiente de subir a producción'),
             'resolved' => __('Resuelto'),
             'cancelled' => __('Cancelado'),
             default => __('Desconocido'),
@@ -446,6 +456,14 @@ class Ticket extends Model
     public function isAwaitingResponse(): bool
     {
         return $this->status === 'awaiting_response';
+    }
+
+    /**
+     * Whether the work is finished and only the deploy to production is missing.
+     */
+    public function isPendingDeploy(): bool
+    {
+        return $this->status === 'pending_deploy';
     }
 
     /**

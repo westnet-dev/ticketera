@@ -406,3 +406,37 @@ test('the client dashboard links to the pending validation tab', function () {
         ->assertSee(route('ticket.index', ['status' => 'pending_validation']))
         ->assertSee(__('Ver pendientes'));
 });
+
+test('moving a ticket to pending deploy does not ask for validation', function () {
+    $ticket = Ticket::factory()->create(['status' => 'in_progress']);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-status-selector', ['ticket' => $ticket])
+        ->call('updateStatus', 'pending_deploy');
+
+    expect($ticket->refresh()->validation_status)->toBe(ValidationStatus::NotRequested);
+});
+
+test('taking a resolved ticket back to pending deploy withdraws the validation request', function () {
+    $ticket = Ticket::factory()->awaitingValidation()->create();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-status-selector', ['ticket' => $ticket])
+        ->call('updateStatus', 'pending_deploy');
+
+    expect($ticket->refresh()->status)->toBe('pending_deploy')
+        ->and($ticket->validation_status)->toBe(ValidationStatus::NotRequested);
+});
+
+test('resolving a ticket once it is deployed asks for validation', function () {
+    $ticket = Ticket::factory()->pendingDeploy()->create();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test('tickets.ticket-status-selector', ['ticket' => $ticket])
+        ->call('updateStatus', 'resolved');
+
+    expect($ticket->refresh()->validation_status)->toBe(ValidationStatus::Pending);
+});

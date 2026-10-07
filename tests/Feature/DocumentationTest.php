@@ -31,6 +31,14 @@ test('the guide explains the awaiting response status', function () {
         ->assertDontSee(__('mientras se espera información'));
 });
 
+test('the guide explains the pending deploy status', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('documentation.index'))
+        ->assertOk()
+        ->assertSee(__('Pendiente de subir a producción'))
+        ->assertSee(__('Se sube a producción'));
+});
+
 test('an admin also sees the admin section', function () {
     $admin = User::factory()->admin()->create();
 

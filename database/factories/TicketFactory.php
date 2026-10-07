@@ -29,7 +29,7 @@ class TicketFactory extends Factory
             'importance' => fake()->randomElement(Level::cases()),
             'urgency' => fake()->randomElement(Level::cases()),
             'impact' => fake()->randomElement(Level::cases()),
-            'status' => fake()->randomElement(['open', 'in_progress', 'paused', 'awaiting_response', 'resolved', 'cancelled']),
+            'status' => fake()->randomElement(['open', 'in_progress', 'paused', 'awaiting_response', 'pending_deploy', 'resolved', 'cancelled']),
             'triage_status' => TriageStatus::Approved,
             'validation_status' => ValidationStatus::NotRequested,
             'resolution_rating' => null,
@@ -61,6 +61,16 @@ class TicketFactory extends Factory
             'validation_status' => ValidationStatus::Confirmed,
             'resolution_rating' => fake()->numberBetween(1, 5),
             'validated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate that the work is done and only the deploy to production is missing.
+     */
+    public function pendingDeploy(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => 'pending_deploy',
         ]);
     }
 
