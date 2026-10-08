@@ -2,6 +2,7 @@
 
 use App\Enums\TriageStatus;
 use App\Models\Ticket;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -47,12 +48,14 @@ new class extends Component
             'rejectionReason' => ['required', 'string', 'min:3', 'max:2000'],
         ]);
 
-        $ticket->messages()->create([
-            'user_id' => auth()->id(),
-            'body' => $validated['rejectionReason'],
-        ]);
+        DB::transaction(function () use ($ticket, $validated) {
+            $ticket->messages()->create([
+                'user_id' => auth()->id(),
+                'body' => $validated['rejectionReason'],
+            ]);
 
-        $ticket->update(['triage_status' => TriageStatus::Rejected]);
+            $ticket->update(['triage_status' => TriageStatus::Rejected]);
+        });
 
         $this->reset(['rejectingTicketId', 'rejectionReason']);
     }

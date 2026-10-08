@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Ticket;
+use App\Observers\TicketNotificationObserver;
 use App\Observers\TicketObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -27,7 +28,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
 
-        Ticket::observe(TicketObserver::class);
+        Ticket::observe([TicketObserver::class, TicketNotificationObserver::class]);
     }
 
     /**
